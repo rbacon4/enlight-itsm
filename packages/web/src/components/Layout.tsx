@@ -124,29 +124,40 @@ export function Layout() {
             alignItems: 'center',
             gap: 10,
           }}>
-            <div style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: 'var(--color-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 13,
-              fontWeight: 600,
-              flexShrink: 0,
-            }}>
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user.name}
+            <NavLink
+              to="/profile"
+              title="View profile"
+              style={({ isActive }) => ({
+                flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10,
+                padding: 4, margin: -4, borderRadius: 8, textDecoration: 'none', color: 'inherit',
+                background: isActive ? 'var(--color-surface-2)' : 'transparent',
+              })}
+            >
+              <div style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: 'var(--color-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#fff',
+                flexShrink: 0,
+              }}>
+                {user.name.charAt(0).toUpperCase()}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{user.globalRole}</div>
-            </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user.name}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'capitalize' }}>{user.globalRole}</div>
+              </div>
+            </NavLink>
             <button
               onClick={logout}
-              style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 4, fontSize: 16 }}
+              style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 4, fontSize: 16, flexShrink: 0 }}
               title="Sign out"
             >
               ⎋

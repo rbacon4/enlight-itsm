@@ -14,6 +14,7 @@ import { ProjectsPage } from './pages/ProjectsPage.js';
 import { ProjectSettingsPage } from './pages/ProjectSettingsPage.js';
 import { AnalyticsPage } from './pages/AnalyticsPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { ProfilePage } from './pages/ProfilePage.js';
 import { UsersPage } from './pages/UsersPage.js';
 import { OffboardingPage } from './pages/OffboardingPage.js';
 import { api } from './lib/api.js';
@@ -76,6 +77,7 @@ function ProtectedRoutes() {
           <Route path="users" element={<UsersPage />} />
           <Route path="offboarding" element={<OffboardingPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
       </Routes>
     </BrandingProvider>

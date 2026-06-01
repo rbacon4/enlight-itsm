@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcrypt';
 import { db } from '../db/client.js';
 import { users, projectMembers, roles } from '../db/schema.js';
 import { eq, and, notLike, isNull } from 'drizzle-orm';
@@ -60,7 +61,11 @@ router.get('/', requirePermission('users.manage'), async (req, res, next) => {
 router.get('/me', async (req, res, next) => {
   try {
     const [row] = await db
-      .select({ totpEnabled: users.totpEnabled, emailPreferences: users.emailPreferences })
+      .select({
+        totpEnabled: users.totpEnabled,
+        emailPreferences: users.emailPreferences,
+        passwordHash: users.passwordHash,
+      })
       .from(users)
       .where(eq(users.id, req.user!.id))
       .limit(1);
@@ -68,6 +73,7 @@ router.get('/me', async (req, res, next) => {
       ...req.user,
       totpEnabled: row?.totpEnabled ?? false,
       emailPreferences: row?.emailPreferences ?? {},
+      hasPassword: Boolean(row?.passwordHash),
     });
   } catch (err) { next(err); }
 });
@@ -92,6 +98,52 @@ router.patch('/me/preferences', async (req, res, next) => {
       .set({ emailPreferences: merged, updatedAt: new Date() })
       .where(eq(users.id, req.user!.id));
     res.json(merged);
+  } catch (err) { next(err); }
+});
+
+// PATCH /users/me/profile — update the signed-in user's own display name
+router.patch('/me/profile', async (req, res, next) => {
+  try {
+    const { name } = z.object({ name: z.string().min(1).max(200) }).parse(req.body);
+    await db.update(users)
+      .set({ name: name.trim(), updatedAt: new Date() })
+      .where(eq(users.id, req.user!.id));
+    res.json({ name: name.trim() });
+  } catch (err) { next(err); }
+});
+
+// PATCH /users/me/password — change the signed-in user's password
+router.patch('/me/password', async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = z.object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(8, 'New password must be at least 8 characters.'),
+    }).parse(req.body);
+
+    const [user] = await db
+      .select({ passwordHash: users.passwordHash })
+      .from(users).where(eq(users.id, req.user!.id)).limit(1);
+
+    if (!user) { next(Errors.notFound('User')); return; }
+
+    // SSO-only accounts have no local password to change.
+    if (!user.passwordHash) {
+      res.status(400).json({ error: 'This account signs in via SSO and has no password to change.' });
+      return;
+    }
+
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) {
+      res.status(422).json({ error: 'Current password is incorrect.' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await db.update(users)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(users.id, req.user!.id));
+
+    res.json({ changed: true });
   } catch (err) { next(err); }
 });
 

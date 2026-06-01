@@ -7,14 +7,14 @@ import { RoleManager } from '../components/RoleManager.js';
 import { ChecklistBuilder } from '../components/ChecklistBuilder.js';
 import {
   SlidersHorizontal, Sparkles, Palette, Mail, Hash, Cloud, UserMinus, ShieldCheck, KeyRound, Lock,
-  Webhook, Smartphone, BadgeCheck, Copy, Check, RefreshCw, Trash2, Plus,
+  Webhook, BadgeCheck, Copy, RefreshCw, Trash2, Plus,
   type LucideIcon,
 } from 'lucide-react';
 import type { OrgDetails, MCPApiKeyPublic, MCPApiKeyCreated, Project, EmbeddingProvider, SlackStatus, GlobalRole, SsoConnectionInfo, SamlMetadataValidation } from '@enlight/shared';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-type Tab = 'general' | 'ai-keys' | 'branding' | 'email' | 'slack' | 'cloud' | 'offboarding' | 'roles' | 'mcp-keys' | 'security' | 'webhooks' | '2fa' | 'license';
+type Tab = 'general' | 'ai-keys' | 'branding' | 'email' | 'slack' | 'cloud' | 'offboarding' | 'roles' | 'mcp-keys' | 'security' | 'webhooks' | 'license';
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'general',     label: 'General',      icon: SlidersHorizontal },
@@ -28,7 +28,6 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'mcp-keys',    label: 'MCP Keys',     icon: KeyRound },
   { id: 'security',    label: 'Security',     icon: Lock },
   { id: 'webhooks',    label: 'Webhooks',     icon: Webhook },
-  { id: '2fa',         label: '2FA',          icon: Smartphone },
   { id: 'license',     label: 'License',      icon: BadgeCheck },
 ];
 
@@ -2225,7 +2224,6 @@ export function SettingsPage() {
           {activeTab === 'mcp-keys' && <MCPKeysTab />}
           {activeTab === 'security' && <SecurityTab org={org} onSaved={handleSaved} />}
           {activeTab === 'webhooks' && <WebhooksTab />}
-          {activeTab === '2fa'      && <><TwoFactorTab /><NotificationPrefsSection /></>}
           {activeTab === 'license'  && <LicenseTab />}
         </div>
       </div>
@@ -2414,168 +2412,6 @@ function WebhooksTab() {
         )}
       </Section>
     </div>
-  );
-}
-
-// ── Notification preferences (within 2FA tab) ─────────────────────────────────
-
-const NOTIF_PREFS: { key: string; label: string; hint: string }[] = [
-  { key: 'ticketCreated',    label: 'Ticket confirmation',   hint: 'Receive a confirmation email when you open a new ticket.' },
-  { key: 'agentReplied',     label: 'Agent replies',         hint: 'Email when an agent replies to one of your tickets.' },
-  { key: 'ticketResolved',   label: 'Ticket resolved',       hint: 'Email when your ticket is marked resolved or closed.' },
-  { key: 'assigned',         label: 'Ticket assigned to you', hint: 'Email when a ticket is assigned to you.' },
-  { key: 'requesterReplied', label: 'Requester replies',     hint: 'Email (to assignee) when the requester replies.' },
-];
-
-function NotificationPrefsSection() {
-  const qc = useQueryClient();
-  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api.get<Record<string, unknown>>('/users/me') });
-  const prefs = (me?.['emailPreferences'] ?? {}) as Record<string, boolean>;
-
-  const mut = useMutation({
-    mutationFn: (body: Record<string, boolean>) => api.patch('/users/me/preferences', body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
-  });
-
-  const toggle = (key: string) => {
-    const current = prefs[key] ?? true;
-    mut.mutate({ [key]: !current });
-  };
-
-  return (
-    <Section title="Email Notifications">
-      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
-        Choose which email notifications you receive. Changes take effect immediately.
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {NOTIF_PREFS.map(({ key, label, hint }) => {
-          const enabled = prefs[key] ?? true;
-          return (
-            <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
-              <input type="checkbox" checked={enabled} onChange={() => toggle(key)} style={{ marginTop: 2, flexShrink: 0 }} />
-              <div>
-                <div style={{ fontWeight: 500, fontSize: 13 }}>{label}</div>
-                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>{hint}</div>
-              </div>
-            </label>
-          );
-        })}
-      </div>
-    </Section>
-  );
-}
-
-// ── Two-factor authentication tab ─────────────────────────────────────────────
-
-function TwoFactorTab() {
-  const { user } = useAuth();
-  const qc = useQueryClient();
-  const [step, setStep] = useState<'idle' | 'setup' | 'confirm' | 'disable'>('idle');
-  const [qrData, setQrData] = useState<{ qrDataUrl: string; secret: string } | null>(null);
-  const [code, setCode] = useState('');
-  const [error, setError] = useState('');
-  const [totpEnabled, setTotpEnabled] = useState(false);
-
-  // Load current TOTP status from /users/me
-  const { data: me } = useQuery({
-    queryKey: ['me'],
-    queryFn: () => api.get<{ totpEnabled: boolean }>('/users/me'),
-  });
-  React.useEffect(() => { if (me) setTotpEnabled((me as { totpEnabled?: boolean }).totpEnabled ?? false); }, [me]);
-
-  const setupMut = useMutation({
-    mutationFn: () => api.post<{ qrDataUrl: string; secret: string }>('/auth/totp/setup', {}),
-    onSuccess: (data) => { setQrData(data); setStep('confirm'); setError(''); },
-    onError: (e: Error) => setError(e.message),
-  });
-
-  const confirmMut = useMutation({
-    mutationFn: (code: string) => api.post('/auth/totp/confirm', { code }),
-    onSuccess: () => { setTotpEnabled(true); setStep('idle'); setCode(''); qc.invalidateQueries({ queryKey: ['me'] }); },
-    onError: (e: Error) => setError(e.message),
-  });
-
-  const disableMut = useMutation({
-    mutationFn: (code: string) => api.post('/auth/totp/disable', { code }),
-    onSuccess: () => { setTotpEnabled(false); setStep('idle'); setCode(''); qc.invalidateQueries({ queryKey: ['me'] }); },
-    onError: (e: Error) => setError(e.message),
-  });
-
-  return (
-    <Section title="Two-Factor Authentication">
-      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 20 }}>
-        Protect your account with an authenticator app (Google Authenticator, Authy, 1Password, etc.).
-        When enabled, you'll be prompted for a 6-digit code after entering your password.
-      </p>
-
-      {totpEnabled && step !== 'disable' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20,
-          background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 8, padding: '12px 16px' }}>
-          <Check size={16} color="#065f46" />
-          <span style={{ fontSize: 13, color: '#065f46', fontWeight: 500 }}>2FA is enabled on your account.</span>
-          <button onClick={() => { setStep('disable'); setCode(''); setError(''); }}
-            style={{ marginLeft: 'auto', fontSize: 12, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>
-            Disable
-          </button>
-        </div>
-      )}
-
-      {!totpEnabled && step === 'idle' && (
-        <button onClick={() => setupMut.mutate()}
-          disabled={setupMut.isPending}
-          style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--color-primary)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13 }}>
-          {setupMut.isPending ? 'Generating…' : 'Set up 2FA'}
-        </button>
-      )}
-
-      {step === 'confirm' && qrData && (
-        <div>
-          <p style={{ fontSize: 13, marginBottom: 12 }}>
-            Scan this QR code with your authenticator app, then enter the 6-digit code to confirm.
-          </p>
-          <img src={qrData.qrDataUrl} alt="TOTP QR code" style={{ display: 'block', marginBottom: 12, border: '1px solid var(--color-border)', borderRadius: 6 }} />
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 16 }}>
-            Manual entry key: <code style={{ fontFamily: 'monospace' }}>{qrData.secret}</code>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input value={code} onChange={e => setCode(e.target.value)} placeholder="123456"
-              style={{ width: 120 }} maxLength={8} />
-            <button onClick={() => { setError(''); confirmMut.mutate(code); }}
-              disabled={code.length < 6 || confirmMut.isPending}
-              style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--color-primary)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13 }}>
-              {confirmMut.isPending ? 'Verifying…' : 'Confirm'}
-            </button>
-            <button onClick={() => { setStep('idle'); setQrData(null); setCode(''); }}
-              style={{ padding: '8px 16px', borderRadius: 6, background: 'none', border: '1px solid var(--color-border)', cursor: 'pointer', fontSize: 13 }}>
-              Cancel
-            </button>
-          </div>
-          {error && <div style={{ color: 'var(--color-danger)', fontSize: 13, marginTop: 8 }}>{error}</div>}
-        </div>
-      )}
-
-      {step === 'disable' && (
-        <div>
-          <p style={{ fontSize: 13, marginBottom: 12 }}>
-            Enter your current 6-digit code to confirm disabling 2FA.
-          </p>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input value={code} onChange={e => setCode(e.target.value)} placeholder="123456"
-              style={{ width: 120 }} maxLength={8} />
-            <button onClick={() => { setError(''); disableMut.mutate(code); }}
-              disabled={code.length < 6 || disableMut.isPending}
-              style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--color-danger)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13 }}>
-              {disableMut.isPending ? 'Disabling…' : 'Disable 2FA'}
-            </button>
-            <button onClick={() => { setStep('idle'); setCode(''); setError(''); }}
-              style={{ padding: '8px 16px', borderRadius: 6, background: 'none', border: '1px solid var(--color-border)', cursor: 'pointer', fontSize: 13 }}>
-              Cancel
-            </button>
-          </div>
-          {error && <div style={{ color: 'var(--color-danger)', fontSize: 13, marginTop: 8 }}>{error}</div>}
-        </div>
-      )}
-    </Section>
   );
 }
 
