@@ -376,7 +376,8 @@ export const aiActions = pgTable('ai_actions', {
     .notNull()
     .references(() => requests.id, { onDelete: 'cascade' }),
   actionType: text('action_type').notNull(),
-  model: aiModelEnum('model').notNull(),
+  // Free-text so any provider's model id can be recorded (claude-*, gpt-*, …).
+  model: text('model').notNull(),
   inputTokens: integer('input_tokens').notNull(),
   outputTokens: integer('output_tokens').notNull(),
   confidence: integer('confidence'),

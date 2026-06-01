@@ -1,17 +1,28 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { db } from '../db/client.js';
 import { requests, projects, comments, aiActions, users, organizations } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { agentToolDefinitions, executeTool } from './tools.js';
+import { runLlmCompletion, toLlmTools, type LlmMessage } from './llm.js';
 import { logger } from '../lib/logger.js';
 import { makeSlackClient } from '../slack/client.js';
 import { decryptOrgSettings } from '../lib/secretCrypto.js';
-import type { AIModel, OrganizationSettings } from '@enlight/shared';
+import type { AIProvider, OrganizationSettings } from '@enlight/shared';
 
-function makeAnthropicClient(orgSettings?: OrganizationSettings) {
-  const apiKey = orgSettings?.anthropicApiKey || process.env['ANTHROPIC_API_KEY'];
+const DEFAULT_OPENAI_MODEL = 'gpt-4o';
+
+/** Resolve the active AI platform, model, and API key for an org. */
+function resolveLlm(orgSettings: OrganizationSettings, projectModel: string): {
+  provider: AIProvider; model: string; apiKey: string;
+} {
+  const provider: AIProvider = orgSettings.aiProvider ?? 'anthropic';
+  if (provider === 'openai') {
+    const apiKey = orgSettings.openAiApiKey || process.env['OPENAI_API_KEY'];
+    if (!apiKey) throw new Error('OpenAI API key not set. Add it in Settings → AI Keys or set OPENAI_API_KEY in your environment.');
+    return { provider, model: orgSettings.openAiModel ?? DEFAULT_OPENAI_MODEL, apiKey };
+  }
+  const apiKey = orgSettings.anthropicApiKey || process.env['ANTHROPIC_API_KEY'];
   if (!apiKey) throw new Error('Anthropic API key not set. Add it in Settings → AI Keys or set ANTHROPIC_API_KEY in your environment.');
-  return new Anthropic({ apiKey });
+  return { provider, model: projectModel, apiKey };
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are Enlight, an AI-powered IT service management assistant.
@@ -68,7 +79,8 @@ export async function runAgentTurn(ctx: AgentContext): Promise<void> {
     .limit(1);
 
   const orgSettings = decryptOrgSettings((orgRow?.settings ?? {}) as OrganizationSettings);
-  const anthropic = makeAnthropicClient(orgSettings);
+  const llm = resolveLlm(orgSettings, project.aiModel);
+  const llmTools = toLlmTools(agentToolDefinitions);
 
   // Find or auto-create a system agent user for this org
   const AGENT_EMAIL = 'enlight-agent@system.internal';
@@ -114,28 +126,24 @@ export async function runAgentTurn(ctx: AgentContext): Promise<void> {
     `Autonomous mode: ${project.aiAutonomousMode ? 'enabled' : 'disabled (draft responses for agent review)'}`,
   ].join('\n');
 
-  const conversationHistory: Anthropic.MessageParam[] = [
+  const conversationHistory: LlmMessage[] = [
     {
       role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: `New support request:\n\nTitle: ${request.title}\nPriority: ${request.priority}\nStatus: ${request.status}\n\nDescription:\n${request.description}`,
-        },
-      ],
+      text: `New support request:\n\nTitle: ${request.title}\nPriority: ${request.priority}\nStatus: ${request.status}\n\nDescription:\n${request.description}`,
     },
   ];
 
   // Add existing comments as conversation context
   for (const comment of requestComments) {
-    conversationHistory.push({
-      role: comment.aiGenerated ? 'assistant' : 'user',
-      content: comment.body,
-    });
+    if (comment.aiGenerated) {
+      conversationHistory.push({ role: 'assistant', text: comment.body, toolCalls: [] });
+    } else {
+      conversationHistory.push({ role: 'user', text: comment.body });
+    }
   }
 
   if (ctx.userMessage) {
-    conversationHistory.push({ role: 'user', content: ctx.userMessage });
+    conversationHistory.push({ role: 'user', text: ctx.userMessage });
   }
 
   // ── Slack "thinking" indicator ─────────────────────────────────────────────
@@ -166,29 +174,31 @@ export async function runAgentTurn(ctx: AgentContext): Promise<void> {
   try {
   let continueLoop = true;
   while (continueLoop) {
-    const response = await anthropic.messages.create({
-      model: project.aiModel as AIModel,
-      max_tokens: 4096,
+    const response = await runLlmCompletion({
+      provider: llm.provider,
+      model: llm.model,
+      apiKey: llm.apiKey,
       system: systemPrompt,
-      tools: agentToolDefinitions,
+      tools: llmTools,
       messages: conversationHistory,
+      maxTokens: 4096,
     });
 
-    inputTokensTotal += response.usage.input_tokens;
-    outputTokensTotal += response.usage.output_tokens;
+    inputTokensTotal += response.usage.inputTokens;
+    outputTokensTotal += response.usage.outputTokens;
 
-    conversationHistory.push({ role: 'assistant', content: response.content });
+    conversationHistory.push({ role: 'assistant', text: response.text, toolCalls: response.toolCalls });
 
-    if (response.stop_reason === 'end_turn') {
-      // Extract text response and save as AI-generated comment
-      const textBlock = response.content.find((b) => b.type === 'text');
-      if (textBlock?.type === 'text' && textBlock.text && agentUserId) {
+    if (response.stopReason === 'end') {
+      // Use the model's text response and save as an AI-generated comment
+      const responseText = response.text;
+      if (responseText && agentUserId) {
         const shouldPost = project.aiAutonomousMode || ctx.triggerType === 'triage';
         if (shouldPost) {
           await db.insert(comments).values({
             requestId: ctx.requestId,
             authorId: agentUserId,
-            body: textBlock.text,
+            body: responseText,
             isInternal: false,
             aiGenerated: true,
           });
@@ -203,19 +213,19 @@ export async function runAgentTurn(ctx: AgentContext): Promise<void> {
                   await slack.chat.update({
                     channel: request.slackUserId,
                     ts: thinkingMsgTs,
-                    text: textBlock.text,
+                    text: responseText,
                   });
                   thinkingMsgTs = undefined; // consumed — skip cleanup in finally
                 } else if (request.slackThreadTs) {
                   await slack.chat.postMessage({
                     channel: request.slackUserId,
                     thread_ts: request.slackThreadTs,
-                    text: textBlock.text,
+                    text: responseText,
                   });
                 } else {
                   const result = await slack.chat.postMessage({
                     channel: request.slackUserId,
-                    text: textBlock.text,
+                    text: responseText,
                   });
                   // Save thread ts so future replies are threaded
                   if (result.ts) {
@@ -235,29 +245,23 @@ export async function runAgentTurn(ctx: AgentContext): Promise<void> {
         }
       }
       continueLoop = false;
-    } else if (response.stop_reason === 'tool_use') {
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-      for (const block of response.content) {
-        if (block.type !== 'tool_use') continue;
-
-        logger.debug('Agent tool call', { tool: block.name, input: block.input });
+    } else if (response.stopReason === 'tools' && response.toolCalls.length > 0) {
+      for (const call of response.toolCalls) {
+        logger.debug('Agent tool call', { tool: call.name, input: call.input });
 
         const result = await executeTool(
-          block.name,
-          block.input as Parameters<typeof executeTool>[1],
+          call.name,
+          call.input as Parameters<typeof executeTool>[1],
           agentUserId,
           orgSettings,
         );
 
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
+        conversationHistory.push({
+          role: 'tool',
+          toolCallId: call.id,
           content: JSON.stringify(result),
         });
       }
-
-      conversationHistory.push({ role: 'user', content: toolResults });
     } else {
       continueLoop = false;
     }
@@ -276,11 +280,11 @@ export async function runAgentTurn(ctx: AgentContext): Promise<void> {
     }
   }
 
-  // Log the AI action for auditability
+  // Log the AI action for auditability (records the model actually used)
   await db.insert(aiActions).values({
     requestId: ctx.requestId,
     actionType: ctx.triggerType,
-    model: project.aiModel,
+    model: llm.model,
     inputTokens: inputTokensTotal,
     outputTokens: outputTokensTotal,
   });

@@ -1,0 +1,1 @@
+ALTER TABLE "ai_actions" ALTER COLUMN "model" SET DATA TYPE text;

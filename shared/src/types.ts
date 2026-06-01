@@ -47,6 +47,12 @@ export type AIModel =
   | 'claude-sonnet-4-5'
   | 'claude-haiku-4-5';
 
+/** LLM platform powering the AI agent. */
+export type AIProvider = 'anthropic' | 'openai';
+
+/** Selectable OpenAI chat models for the agent. */
+export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'gpt-4.1-mini';
+
 export type MCPPermissionLevel = 'read' | 'read_write';
 
 export type SLAAlertChannel = 'slack_dm' | 'slack_channel' | 'email';
@@ -100,6 +106,10 @@ export interface OrganizationSettings {
   brandName?: string;
   brandPrimaryColor?: string;
   brandLogoUrl?: string;
+  // AI platform — which LLM provider powers the agent (default: anthropic)
+  aiProvider?: AIProvider;
+  /** OpenAI chat model used when aiProvider = 'openai'. */
+  openAiModel?: OpenAIModel;
   // AI API keys — stored in org settings, override environment variables
   anthropicApiKey?: string;
   voyageApiKey?: string;

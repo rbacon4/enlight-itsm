@@ -52,6 +52,12 @@ docker compose up
 - **pgvector** — knowledge base embeddings stored in `knowledge_chunks.embedding` (1536 dimensions, Anthropic Embeddings API)
 - **BullMQ** — all async work (AI agent turns, KB sync, SLA monitoring) goes through Redis queues
 - **AI agent loop** — `packages/api/src/agent/agent.ts`; the worker picks up jobs and calls `runAgentTurn()`
+- **Multi-provider LLM** — `packages/api/src/agent/llm.ts` is a provider-neutral adapter
+  (Anthropic Claude via SDK, OpenAI GPT via the Chat Completions REST API). The agent
+  loop is provider-agnostic; the platform is chosen per-org in **Settings → AI Keys**
+  (`settings.aiProvider` + `settings.openAiModel`). Anthropic uses the per-project Claude
+  model; OpenAI uses the org-level `openAiModel`. `ai_actions.model` is free text so any
+  provider's model id is recorded.
 - **Slack** — Socket Mode for local dev (no public URL needed); HTTP mode for production
 
 ## Database migrations

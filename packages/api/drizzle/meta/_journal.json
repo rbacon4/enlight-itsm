@@ -148,6 +148,13 @@
       "when": 1780341197641,
       "tag": "0020_adorable_sinister_six",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1780355827156,
+      "tag": "0021_heavy_mantis",
+      "breakpoints": true
     }
   ]
 }
