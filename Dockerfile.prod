@@ -1,0 +1,95 @@
+# syntax=docker/dockerfile:1
+# ─────────────────────────────────────────────────────────────────────────────
+# Single-container production image for Enlight ITSM.
+#
+# Bundles the API (Express + statically-served React SPA), the BullMQ worker,
+# and the MCP server into one lightweight Alpine image.  Database migrations
+# run automatically on startup (see docker-entrypoint.sh).
+#
+#   docker build -f Dockerfile.prod -t enlight .
+#   docker run -p 3000:3000 --env-file .env enlight
+#
+# MCP server is exposed on MCP_PORT (default 3001) when MCP_ENABLED=true.
+# For Claude Code --stdio mode, run the container with:
+#   docker exec -i <container> node packages/mcp/dist/index.js --stdio
+# ─────────────────────────────────────────────────────────────────────────────
+
+FROM node:20-alpine AS base
+RUN corepack enable pnpm
+WORKDIR /app
+
+# ── deps: full install (incl. dev deps) for building ─────────────────────────
+FROM base AS deps
+# Build toolchain for native modules (bcrypt).
+RUN apk add --no-cache python3 make g++
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY shared/package.json ./shared/
+COPY packages/api/package.json ./packages/api/
+COPY packages/worker/package.json ./packages/worker/
+COPY packages/mcp/package.json ./packages/mcp/
+COPY packages/web/package.json ./packages/web/
+RUN pnpm install --frozen-lockfile
+
+# ── build: compile shared, api, worker, mcp and the SPA ──────────────────────
+FROM deps AS build
+COPY tsconfig.base.json ./
+COPY shared/ ./shared/
+COPY packages/api/ ./packages/api/
+COPY packages/worker/ ./packages/worker/
+COPY packages/mcp/ ./packages/mcp/
+COPY packages/web/ ./packages/web/
+RUN pnpm --filter @enlight/shared build \
+ && pnpm --filter @enlight/api build \
+ && pnpm --filter @enlight/worker build \
+ && pnpm --filter @enlight/mcp build \
+ && pnpm --filter @enlight/web build
+
+# ── prod-deps: production-only node_modules (no typescript/vite/drizzle-kit) ──
+FROM base AS prod-deps
+RUN apk add --no-cache python3 make g++
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY shared/package.json ./shared/
+COPY packages/api/package.json ./packages/api/
+COPY packages/worker/package.json ./packages/worker/
+COPY packages/mcp/package.json ./packages/mcp/
+COPY packages/web/package.json ./packages/web/
+RUN pnpm install --frozen-lockfile --prod
+
+# ── runner: minimal runtime image ─────────────────────────────────────────────
+FROM base AS runner
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV MCP_PORT=3001
+# bash for the entrypoint supervisor; postgresql-client provides pg_dump for the
+# nightly backup job. (If your DB is a newer major than the client, set
+# BACKUP_PGDUMP_PATH or use a matching client image.)
+RUN apk add --no-cache bash postgresql-client
+
+# Workspace manifests (needed for @enlight/shared resolution via node_modules symlinks).
+COPY package.json pnpm-workspace.yaml ./
+COPY shared/package.json ./shared/
+COPY packages/api/package.json ./packages/api/
+COPY packages/worker/package.json ./packages/worker/
+COPY packages/mcp/package.json ./packages/mcp/
+
+# Production dependencies (with workspace symlinks) from prod-deps.
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/shared/node_modules ./shared/node_modules
+COPY --from=prod-deps /app/packages/api/node_modules ./packages/api/node_modules
+COPY --from=prod-deps /app/packages/worker/node_modules ./packages/worker/node_modules
+COPY --from=prod-deps /app/packages/mcp/node_modules ./packages/mcp/node_modules
+
+# Compiled output from build.
+COPY --from=build /app/shared/dist ./shared/dist
+COPY --from=build /app/packages/api/dist ./packages/api/dist
+COPY --from=build /app/packages/api/drizzle ./packages/api/drizzle
+COPY --from=build /app/packages/worker/dist ./packages/worker/dist
+COPY --from=build /app/packages/mcp/dist ./packages/mcp/dist
+COPY --from=build /app/packages/web/dist ./packages/web/dist
+
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
+
+EXPOSE 3000
+EXPOSE 3001
+ENTRYPOINT ["./docker-entrypoint.sh"]

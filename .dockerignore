@@ -1,0 +1,11 @@
+# Keep the build context small and avoid leaking local state/secrets.
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.claude
+**/*.tsbuildinfo

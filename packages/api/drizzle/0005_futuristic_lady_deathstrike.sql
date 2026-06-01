@@ -1,0 +1,1 @@
+ALTER TYPE "public"."project_role" ADD VALUE 'customer';

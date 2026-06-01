@@ -1,0 +1,1 @@
+ALTER TABLE "attachments" ADD COLUMN "storage_provider" text DEFAULT 'gcs' NOT NULL;

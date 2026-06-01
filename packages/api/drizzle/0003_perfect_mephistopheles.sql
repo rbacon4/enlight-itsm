@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "slack_quick_actions" jsonb DEFAULT '[]' NOT NULL;
