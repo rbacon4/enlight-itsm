@@ -9,8 +9,18 @@ import { decryptOrgSettings } from '../lib/secretCrypto.js';
 import type { AIProvider, OrganizationSettings } from '@enlight/shared';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-4o';
+const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-4-5';
+const OPENAI_MODELS = new Set(['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini']);
+const CLAUDE_MODELS = new Set(['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5']);
 
-/** Resolve the active AI platform, model, and API key for an org. */
+/**
+ * Resolve the active AI platform, model, and API key for an org.
+ *
+ * The model is the project's `aiModel` for BOTH platforms (per-project parity).
+ * If the stored model doesn't belong to the active provider's family — e.g. the
+ * org switched platform but a project still has a Claude model saved — we fall
+ * back to that provider's default so a turn never fails on a mismatched model.
+ */
 function resolveLlm(orgSettings: OrganizationSettings, projectModel: string): {
   provider: AIProvider; model: string; apiKey: string;
 } {
@@ -18,11 +28,13 @@ function resolveLlm(orgSettings: OrganizationSettings, projectModel: string): {
   if (provider === 'openai') {
     const apiKey = orgSettings.openAiApiKey || process.env['OPENAI_API_KEY'];
     if (!apiKey) throw new Error('OpenAI API key not set. Add it in Settings → AI Keys or set OPENAI_API_KEY in your environment.');
-    return { provider, model: orgSettings.openAiModel ?? DEFAULT_OPENAI_MODEL, apiKey };
+    const model = OPENAI_MODELS.has(projectModel) ? projectModel : DEFAULT_OPENAI_MODEL;
+    return { provider, model, apiKey };
   }
   const apiKey = orgSettings.anthropicApiKey || process.env['ANTHROPIC_API_KEY'];
   if (!apiKey) throw new Error('Anthropic API key not set. Add it in Settings → AI Keys or set ANTHROPIC_API_KEY in your environment.');
-  return { provider, model: projectModel, apiKey };
+  const model = CLAUDE_MODELS.has(projectModel) ? projectModel : DEFAULT_CLAUDE_MODEL;
+  return { provider, model, apiKey };
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are Enlight, an AI-powered IT service management assistant.

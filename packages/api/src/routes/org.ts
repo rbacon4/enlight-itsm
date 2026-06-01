@@ -123,9 +123,8 @@ const updateOrgSchema = z.object({
       v => v.startsWith('http') || v.startsWith('data:image/'),
       'Must be an http URL or a data:image URI',
     ).nullable().optional(),
-    // AI platform — which LLM provider powers the agent
+    // AI platform — which LLM provider powers the agent (model is per-project)
     aiProvider: z.enum(['anthropic', 'openai']).nullable().optional(),
-    openAiModel: z.enum(['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini']).nullable().optional(),
     // AI API keys — stored per-org, override ANTHROPIC_API_KEY / VOYAGE_API_KEY env vars
     anthropicApiKey: z.string().max(200).nullable().optional(),
     voyageApiKey: z.string().max(200).nullable().optional(),

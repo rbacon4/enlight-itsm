@@ -42,16 +42,20 @@ export type KnowledgeSourceType = 'confluence' | 'gdrive' | 'notion' | 'file';
 export type KnowledgeFileType = 'pdf' | 'txt' | 'rtf' | 'docx';
 export type KnowledgeSourceStatus = 'active' | 'syncing' | 'error' | 'pending';
 
-export type AIModel =
+/** Selectable Anthropic (Claude) models for the agent. */
+export type ClaudeModel =
   | 'claude-opus-4-5'
   | 'claude-sonnet-4-5'
   | 'claude-haiku-4-5';
 
+/** Selectable OpenAI (GPT) models for the agent. */
+export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'gpt-4.1-mini';
+
+/** Any agent model — the per-project model can belong to either platform. */
+export type AIModel = ClaudeModel | OpenAIModel;
+
 /** LLM platform powering the AI agent. */
 export type AIProvider = 'anthropic' | 'openai';
-
-/** Selectable OpenAI chat models for the agent. */
-export type OpenAIModel = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'gpt-4.1-mini';
 
 export type MCPPermissionLevel = 'read' | 'read_write';
 
@@ -101,15 +105,15 @@ export interface EmailSenderConfig {
 export type EmbeddingProvider = 'voyage' | 'openai';
 
 export interface OrganizationSettings {
-  defaultModel?: AIModel;
+  /** Claude model used for the offboarding audit summary (Anthropic-only feature). */
+  defaultModel?: ClaudeModel;
   dataRetentionDays?: number | null;
   brandName?: string;
   brandPrimaryColor?: string;
   brandLogoUrl?: string;
-  // AI platform — which LLM provider powers the agent (default: anthropic)
+  // AI platform — which LLM provider powers the agent (default: anthropic).
+  // The model itself is chosen per-project (project.aiModel).
   aiProvider?: AIProvider;
-  /** OpenAI chat model used when aiProvider = 'openai'. */
-  openAiModel?: OpenAIModel;
   // AI API keys — stored in org settings, override environment variables
   anthropicApiKey?: string;
   voyageApiKey?: string;

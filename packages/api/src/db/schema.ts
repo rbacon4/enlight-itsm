@@ -143,7 +143,8 @@ export const projects = pgTable(
     key: text('key').notNull().default(''),
     description: text('description'),
     icon: text('icon'),
-    aiModel: aiModelEnum('ai_model').notNull().default('claude-sonnet-4-5'),
+    // Free text so the model can belong to either platform (claude-* or gpt-*).
+    aiModel: text('ai_model').notNull().default('claude-sonnet-4-5'),
     aiInstructions: text('ai_instructions'),
     aiAutonomousMode: boolean('ai_autonomous_mode').notNull().default(false),
     aiEscalationThreshold: integer('ai_escalation_threshold').notNull().default(80),

@@ -10,7 +10,7 @@ import {
   Webhook, BadgeCheck, Copy, RefreshCw, Trash2, Plus,
   type LucideIcon,
 } from 'lucide-react';
-import type { OrgDetails, MCPApiKeyPublic, MCPApiKeyCreated, Project, EmbeddingProvider, AIProvider, OpenAIModel, SlackStatus, GlobalRole, SsoConnectionInfo, SamlMetadataValidation } from '@enlight/shared';
+import type { OrgDetails, MCPApiKeyPublic, MCPApiKeyCreated, Project, EmbeddingProvider, AIProvider, SlackStatus, GlobalRole, SsoConnectionInfo, SamlMetadataValidation } from '@enlight/shared';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -295,7 +295,6 @@ function KeyInput({
 function AIKeysTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
   const [form, setForm] = useState({
     aiProvider:        (org.settings.aiProvider ?? 'anthropic') as AIProvider,
-    openAiModel:       (org.settings.openAiModel ?? 'gpt-4o') as OpenAIModel,
     anthropicApiKey:   org.settings.anthropicApiKey   ?? '',
     embeddingProvider: (org.settings.embeddingProvider ?? 'voyage') as EmbeddingProvider,
     voyageApiKey:      org.settings.voyageApiKey      ?? '',
@@ -307,7 +306,6 @@ function AIKeysTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
   useEffect(() => {
     setForm({
       aiProvider:        (org.settings.aiProvider ?? 'anthropic') as AIProvider,
-      openAiModel:       (org.settings.openAiModel ?? 'gpt-4o') as OpenAIModel,
       anthropicApiKey:   org.settings.anthropicApiKey   ?? '',
       embeddingProvider: org.settings.embeddingProvider ?? 'voyage',
       voyageApiKey:      org.settings.voyageApiKey      ?? '',
@@ -319,7 +317,6 @@ function AIKeysTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
     mutationFn: () => api.patch<OrgDetails>('/org', {
       settings: {
         aiProvider:        form.aiProvider,
-        openAiModel:       form.openAiModel,
         anthropicApiKey:   form.anthropicApiKey   || null,
         embeddingProvider: form.embeddingProvider as 'voyage' | 'openai',
         voyageApiKey:      form.voyageApiKey      || null,
@@ -349,75 +346,59 @@ function AIKeysTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
           <code style={{ color: 'var(--color-primary)' }}>OPENAI_API_KEY</code>).
         </div>
 
-        <Field label="AI Platform" hint="The agent's chat + tool-calling backend.">
+        <Field
+          label="AI Platform"
+          hint="Anthropic is the recommended default and powers the AI agent. OpenAI is also supported. The model is chosen per project in Project Settings → AI."
+        >
           <select
             value={form.aiProvider}
             onChange={e => setForm(f => ({ ...f, aiProvider: e.target.value as AIProvider }))}
             style={{ maxWidth: 280 }}
           >
-            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="anthropic">Anthropic (Claude) — recommended</option>
             <option value="openai">OpenAI (GPT)</option>
           </select>
         </Field>
 
         {form.aiProvider === 'anthropic' && (
-          <>
-            <KeyInput
-              label="Anthropic API Key"
-              hint={
-                <>
-                  Used for all Claude model calls. Get one at{' '}
-                  <a href="https://console.anthropic.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>
-                    console.anthropic.com
-                  </a>.
-                </>
-              }
-              value={form.anthropicApiKey}
-              onChange={v => setForm(f => ({ ...f, anthropicApiKey: v }))}
-              placeholder="sk-ant-api03-…"
-            />
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: -4 }}>
-              The Claude model is chosen per project in <strong>Project Settings → AI</strong>.
-            </div>
-          </>
+          <KeyInput
+            label="Anthropic API Key"
+            hint={
+              <>
+                Get one at{' '}
+                <a href="https://console.anthropic.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>
+                  console.anthropic.com
+                </a>.
+              </>
+            }
+            value={form.anthropicApiKey}
+            onChange={v => setForm(f => ({ ...f, anthropicApiKey: v }))}
+            placeholder="sk-ant-api03-…"
+          />
         )}
 
         {form.aiProvider === 'openai' && (
-          <>
-            <Field label="OpenAI Model" hint="Used for the agent when OpenAI is selected.">
-              <select
-                value={form.openAiModel}
-                onChange={e => setForm(f => ({ ...f, openAiModel: e.target.value as OpenAIModel }))}
-                style={{ maxWidth: 280 }}
-              >
-                <option value="gpt-4o">GPT-4o</option>
-                <option value="gpt-4o-mini">GPT-4o mini</option>
-                <option value="gpt-4.1">GPT-4.1</option>
-                <option value="gpt-4.1-mini">GPT-4.1 mini</option>
-              </select>
-            </Field>
-            <KeyInput
-              label="OpenAI API Key"
-              hint={
-                <>
-                  Used for agent calls (and embeddings if OpenAI is selected below). Get one at{' '}
-                  <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>
-                    platform.openai.com
-                  </a>.
-                </>
-              }
-              value={form.openAiApiKey}
-              onChange={v => setForm(f => ({ ...f, openAiApiKey: v }))}
-              placeholder="sk-…"
-            />
-          </>
+          <KeyInput
+            label="OpenAI API Key"
+            hint={
+              <>
+                Get one at{' '}
+                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>
+                  platform.openai.com
+                </a>.
+              </>
+            }
+            value={form.openAiApiKey}
+            onChange={v => setForm(f => ({ ...f, openAiApiKey: v }))}
+            placeholder="sk-…"
+          />
         )}
       </Section>
 
       <Section title="Embeddings">
         <Field
           label="Embedding Provider"
-          hint="Voyage is Anthropic's recommended partner and the default. OpenAI is also supported."
+          hint="Voyage is the recommended default and powers knowledge base search. OpenAI is also supported. Embeddings are independent of the AI platform above."
         >
           <select
             value={form.embeddingProvider}

@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ALTER COLUMN "ai_model" SET DATA TYPE text;

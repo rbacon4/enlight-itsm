@@ -19,7 +19,7 @@ import type {
   OrganizationSettings,
   OffboardingActionResult,
   OffboardingStatus,
-  AIModel,
+  ClaudeModel,
 } from '@enlight/shared';
 import { decryptOrgSettings, decryptSecret } from './secretCrypto.js';
 import { makeGoogleWorkspaceService, resolveOffboardingConfig } from './googleWorkspace.js';
@@ -330,7 +330,7 @@ async function firstAdminId(orgId: string): Promise<string | null> {
 
 // ── AI summary ────────────────────────────────────────────────────────────────
 
-const MODEL_MAP: Record<AIModel, string> = {
+const MODEL_MAP: Record<ClaudeModel, string> = {
   'claude-opus-4-5': 'claude-opus-4-5',
   'claude-sonnet-4-5': 'claude-sonnet-4-5',
   'claude-haiku-4-5': 'claude-haiku-4-5',

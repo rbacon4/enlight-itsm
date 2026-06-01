@@ -12,8 +12,21 @@ import type {
   Project, SlaPolicy, SlaAlertConfig, SLAAlertChannel,
   ProjectCategory, CustomFieldDef, RequestPriority, User,
   SlackQuickAction, SlackQuickActionField, QuickActionFieldType,
-  ProjectMemberDetail, ProjectRole, Role,
+  ProjectMemberDetail, ProjectRole, Role, OrgDetails, AIProvider,
 } from '@enlight/shared';
+
+// Per-platform agent model options (kept in parity with Settings → AI Keys).
+const CLAUDE_MODEL_OPTIONS: { value: string; label: string }[] = [
+  { value: 'claude-sonnet-4-5', label: 'claude-sonnet-4-5 — balanced' },
+  { value: 'claude-opus-4-5',   label: 'claude-opus-4-5 — highest capability' },
+  { value: 'claude-haiku-4-5',  label: 'claude-haiku-4-5 — fastest / lowest cost' },
+];
+const OPENAI_MODEL_OPTIONS: { value: string; label: string }[] = [
+  { value: 'gpt-4o',      label: 'gpt-4o — balanced' },
+  { value: 'gpt-4.1',     label: 'gpt-4.1 — highest capability' },
+  { value: 'gpt-4o-mini', label: 'gpt-4o-mini — fastest / lowest cost' },
+  { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini — fast, newer' },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -284,17 +297,32 @@ function AISection({ project, users }: { project: Project; users: User[] }) {
   }, [project]);
   const { mut, saved, error } = useSave(project.id);
 
+  // The model list follows the org's AI platform (Settings → AI Keys).
+  const { data: org } = useQuery({ queryKey: ['org'], queryFn: () => api.get<OrgDetails>('/org') });
+  const provider: AIProvider = org?.settings.aiProvider ?? 'anthropic';
+  const modelOptions = provider === 'openai' ? OPENAI_MODEL_OPTIONS : CLAUDE_MODEL_OPTIONS;
+
+  // If the org switched platform, the stored model may not belong to the active
+  // provider — fall back to that provider's first model so the select stays valid.
+  useEffect(() => {
+    if (!org) return;
+    if (!modelOptions.some(o => o.value === form.aiModel)) {
+      setForm(f => ({ ...f, aiModel: modelOptions[0]!.value as Project['aiModel'] }));
+    }
+  }, [org, provider]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <Section
       title="AI Configuration"
       hint="Control how the AI agent behaves for requests in this project."
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <Field label="AI Model" hint="Overrides the organization default for this project.">
+        <Field
+          label="AI Model"
+          hint={`Model used for this project (${provider === 'openai' ? 'OpenAI' : 'Anthropic'} platform — change it in Settings → AI Keys).`}
+        >
           <select value={form.aiModel} onChange={e => setForm(f => ({ ...f, aiModel: e.target.value as Project['aiModel'] }))}>
-            <option value="claude-sonnet-4-5">claude-sonnet-4-5 — balanced</option>
-            <option value="claude-opus-4-5">claude-opus-4-5 — highest capability</option>
-            <option value="claude-haiku-4-5">claude-haiku-4-5 — fastest / lowest cost</option>
+            {modelOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </Field>
 
