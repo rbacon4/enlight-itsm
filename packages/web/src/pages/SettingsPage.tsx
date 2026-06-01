@@ -2132,8 +2132,22 @@ export function SettingsPage() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>('general');
-  // The Roles tab needs role.manage (super_admin) to list/manage global roles.
-  const visibleTabs = TABS.filter((t) => t.id !== 'roles' || can('roles.manage'));
+
+  // Server feature flags (licensing is disabled by default pre-release).
+  const { data: config } = useQuery({
+    queryKey: ['config'],
+    queryFn: () => api.get<{ licensingEnabled: boolean }>('/config'),
+    staleTime: Infinity,
+  });
+  const licensingEnabled = config?.licensingEnabled ?? false;
+
+  // Hide tabs the caller can't use: Roles needs role.manage; License is hidden
+  // entirely unless LICENSE_ENFORCEMENT is enabled on the server.
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === 'roles') return can('roles.manage');
+    if (t.id === 'license') return licensingEnabled;
+    return true;
+  });
 
   const { data: org, isLoading, error } = useQuery({
     queryKey: ['org'],
@@ -2568,9 +2582,10 @@ function TwoFactorTab() {
 // ── License tab ───────────────────────────────────────────────────────────────
 
 interface LicenseInfo {
-  status: 'active' | 'grace' | 'expired' | 'invalid' | 'unlicensed';
+  status: 'disabled' | 'active' | 'grace' | 'expired' | 'invalid' | 'unlicensed';
   message: string;
   daysRemaining?: number;
+  enforcementEnabled?: boolean;
   payload?: {
     customer: string; email: string; plan: string;
     maxAgents: number; issuedAt: string; expiresAt: string;
@@ -2578,11 +2593,11 @@ interface LicenseInfo {
 }
 
 const LICENSE_STATUS_COLORS: Record<string, string> = {
-  active: '#065f46', grace: '#92400e', expired: '#991b1b',
+  disabled: '#374151', active: '#065f46', grace: '#92400e', expired: '#991b1b',
   invalid: '#991b1b', unlicensed: '#374151',
 };
 const LICENSE_STATUS_BG: Record<string, string> = {
-  active: '#d1fae5', grace: '#fef3c7', expired: '#fee2e2',
+  disabled: 'var(--color-surface-2)', active: '#d1fae5', grace: '#fef3c7', expired: '#fee2e2',
   invalid: '#fee2e2', unlicensed: 'var(--color-surface-2)',
 };
 

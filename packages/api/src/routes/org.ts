@@ -10,7 +10,7 @@ import { startSlack, stopSlack, isSlackRunning } from '../slack/index.js';
 import { fetchIdpMetadata } from '../lib/samlMetadata.js';
 import { encryptOrgSettings, decryptOrgSettings } from '../lib/secretCrypto.js';
 import { getStorageBackend } from '../lib/storage.js';
-import { verifyLicense, clearLicenseCache } from '../lib/license.js';
+import { verifyLicense, clearLicenseCache, isLicensingEnabled } from '../lib/license.js';
 import type { OrganizationSettings, StorageProvider } from '@enlight/shared';
 
 const router = Router();
@@ -634,7 +634,7 @@ router.get('/license', requirePermission('org.manage_settings'), async (req, res
       .from(organizations).where(eq(organizations.id, req.user!.orgId)).limit(1);
     if (!org) { next(Errors.notFound('Organization')); return; }
     const info = verifyLicense(org.licenseKey);
-    res.json(info);
+    res.json({ ...info, enforcementEnabled: isLicensingEnabled() });
   } catch (err) { next(err); }
 });
 

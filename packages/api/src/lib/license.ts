@@ -12,6 +12,7 @@
  *   { customer, email, plan, maxAgents, issuedAt, expiresAt }
  *
  * Behaviour:
+ *   • Enforcement OFF (default) → DISABLED  (the whole feature is dormant)
  *   • Valid + not expired  → ACTIVE
  *   • Valid + in grace (≤30 days past expiry) → GRACE
  *   • Valid + expired > 30 days → EXPIRED
@@ -21,10 +22,28 @@
  * A missing or expired license never crashes the app — it shows a banner in
  * the Settings → License UI and logs a warning on boot.  Feature gating is
  * left to future iterations; for now the app runs fully in all states.
+ *
+ * ── Enabling licensing ────────────────────────────────────────────────────────
+ * Licensing is DISABLED by default so the product runs unrestricted during
+ * development and pre-release. To turn it on (e.g. at GA), set ONE env var:
+ *
+ *     LICENSE_ENFORCEMENT=true
+ *
+ * and point the app at your hosted public key via LICENSE_PUBLIC_KEY. Nothing
+ * else needs to change — the routes, boot log, and Settings → License tab all
+ * key off `isLicensingEnabled()`.
  */
 
 import crypto from 'crypto';
 import { logger } from './logger.js';
+
+/**
+ * Master switch for the licensing feature. Disabled unless LICENSE_ENFORCEMENT
+ * is exactly "true". Keep this the single source of truth for the flag.
+ */
+export function isLicensingEnabled(): boolean {
+  return process.env['LICENSE_ENFORCEMENT'] === 'true';
+}
 
 // ── Vendor public key (Ed25519, raw 32 bytes, hex-encoded) ────────────────────
 // Replace this with your actual public key before shipping.
@@ -45,7 +64,7 @@ export interface LicensePayload {
   expiresAt: string;  // ISO date
 }
 
-export type LicenseStatus = 'active' | 'grace' | 'expired' | 'invalid' | 'unlicensed';
+export type LicenseStatus = 'disabled' | 'active' | 'grace' | 'expired' | 'invalid' | 'unlicensed';
 
 export interface LicenseInfo {
   status: LicenseStatus;
@@ -58,6 +77,11 @@ export interface LicenseInfo {
 const GRACE_DAYS = 30;
 
 export function verifyLicense(key: string | null | undefined): LicenseInfo {
+  // When enforcement is off the whole feature is dormant — never inspect the key.
+  if (!isLicensingEnabled()) {
+    return { status: 'disabled', message: 'License enforcement is disabled in this deployment.' };
+  }
+
   if (!key?.trim()) {
     return { status: 'unlicensed', message: 'No license key configured.' };
   }
@@ -130,6 +154,10 @@ export function clearLicenseCache(): void {
 
 /** Log license status on API boot. */
 export function logLicenseStatus(): void {
+  if (!isLicensingEnabled()) {
+    logger.info('License enforcement disabled (set LICENSE_ENFORCEMENT=true to enable)');
+    return;
+  }
   const info = getLicense();
   if (info.status === 'active') {
     logger.info('License valid', { plan: info.payload?.plan, expiresAt: info.payload?.expiresAt });

@@ -25,6 +25,7 @@ import { templatesRouter } from './routes/templates.js';
 import { csatRouter } from './routes/csat.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { mountSlackHttp } from './slack/index.js';
+import { isLicensingEnabled } from './lib/license.js';
 
 const isProduction = process.env['NODE_ENV'] === 'production';
 const app = express();
@@ -68,6 +69,12 @@ app.get('/health', (_req, res) => {
 // several SPA routes (/projects, /users, /analytics, /offboarding) collide with
 // API routes — so the whole API is mounted under /api.
 const api = express.Router();
+
+// Public feature-flag config the SPA reads on load (no auth — safe, non-secret).
+api.get('/config', (_req, res) => {
+  res.json({ licensingEnabled: isLicensingEnabled() });
+});
+
 api.use('/auth/saml', samlAuthRouter);
 api.use('/saml', samlMetadataRouter);
 api.use('/scim/v2', scimRouter);

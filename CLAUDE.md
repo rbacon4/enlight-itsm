@@ -229,6 +229,26 @@ docker run -p 3000:3000 --env-file .env enlight   # needs reachable Postgres + R
 See `.env.example` for the full production variable set (Slack OAuth, `BACKUP_S3_*`,
 `WEB_DIST_DIR`).
 
+## Licensing (disabled by default)
+
+Offline Ed25519 license-key verification lives in `lib/license.ts`, but the whole
+feature is **dormant until you flip one switch**. `isLicensingEnabled()` reads
+`LICENSE_ENFORCEMENT` and is the single source of truth:
+
+- **Off (default):** `verifyLicense()` returns `status: 'disabled'`, the boot log
+  notes it's disabled, `GET /api/config` reports `licensingEnabled: false`, and the
+  web hides the **Settings → License** tab. The app runs unrestricted.
+- **On (`LICENSE_ENFORCEMENT=true`):** original behaviour — keys are verified
+  against `LICENSE_PUBLIC_KEY`, the License tab appears, and `GET /org/license`
+  reports active/grace/expired/unlicensed.
+
+Keys are issued by the separate **license server**
+([enlight-itsm-license-server](https://github.com/rbacon4/enlight-itsm-license-server))
+— a local dev tool now; a GCP-hosted service at GA. To enable at release: set
+`LICENSE_ENFORCEMENT=true` and `LICENSE_PUBLIC_KEY=<hosted server's public key>`.
+Nothing else changes — routes (`/org/license` GET/PUT/DELETE), the `/api/config`
+flag, and the web tab all key off the same flag.
+
 ## What's next (implementation order)
 
 1. ~~**Slack bot**~~ ✅ — `packages/api/src/slack/` — App Home, DM intake, AI agent loop, Block Kit modals
