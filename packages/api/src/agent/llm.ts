@@ -110,12 +110,17 @@ async function runAnthropic(req: LlmRequest): Promise<LlmCompletion> {
   const response = await client.messages.create({
     model: req.model,
     max_tokens: req.maxTokens ?? 4096,
-    system: req.system,
-    tools: req.tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
-    })),
+    // Omit system/tools when empty so simple (no-tool) completions work too.
+    ...(req.system.trim() ? { system: req.system } : {}),
+    ...(req.tools.length > 0
+      ? {
+          tools: req.tools.map((t) => ({
+            name: t.name,
+            description: t.description,
+            input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
+          })),
+        }
+      : {}),
     messages: toAnthropicMessages(req.messages),
   });
 
@@ -149,7 +154,7 @@ interface OpenAIResponse {
 }
 
 export function toOpenAIMessages(system: string, messages: LlmMessage[]): unknown[] {
-  const out: unknown[] = [{ role: 'system', content: system }];
+  const out: unknown[] = system.trim() ? [{ role: 'system', content: system }] : [];
   for (const m of messages) {
     if (m.role === 'user') {
       out.push({ role: 'user', content: m.text });
@@ -178,11 +183,16 @@ async function runOpenAI(req: LlmRequest): Promise<LlmCompletion> {
       model: req.model,
       max_tokens: req.maxTokens ?? 4096,
       messages: toOpenAIMessages(req.system, req.messages),
-      tools: req.tools.map((t) => ({
-        type: 'function',
-        function: { name: t.name, description: t.description, parameters: t.inputSchema },
-      })),
-      tool_choice: 'auto',
+      // Only send tools/tool_choice when there are tools (OpenAI rejects an empty array).
+      ...(req.tools.length > 0
+        ? {
+            tools: req.tools.map((t) => ({
+              type: 'function',
+              function: { name: t.name, description: t.description, parameters: t.inputSchema },
+            })),
+            tool_choice: 'auto',
+          }
+        : {}),
     }),
   });
 

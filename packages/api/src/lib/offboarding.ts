@@ -10,7 +10,7 @@
  * GWS operations (suspend / move OU / Drive transfer) are idempotent, so a
  * retried job is safe.
  */
-import Anthropic from '@anthropic-ai/sdk';
+import { runLlmCompletion } from '../agent/llm.js';
 import { db } from '../db/client.js';
 import { offboardingEvents, organizations, users, comments, offboardingChecklists, offboardingChecklistSteps } from '../db/schema.js';
 import { auditLogs } from '../db/schema.js';
@@ -20,6 +20,7 @@ import type {
   OffboardingActionResult,
   OffboardingStatus,
   ClaudeModel,
+  AIProvider,
 } from '@enlight/shared';
 import { decryptOrgSettings, decryptSecret } from './secretCrypto.js';
 import { makeGoogleWorkspaceService, resolveOffboardingConfig } from './googleWorkspace.js';
@@ -336,17 +337,28 @@ const MODEL_MAP: Record<ClaudeModel, string> = {
   'claude-haiku-4-5': 'claude-haiku-4-5',
 };
 
+/** Resolve the platform/model/key for the audit summary, honouring the org's AI platform. */
+function resolveSummaryLlm(orgSettings: OrganizationSettings): { provider: AIProvider; model: string; apiKey: string } | null {
+  const provider: AIProvider = orgSettings.aiProvider ?? 'anthropic';
+  if (provider === 'openai') {
+    const apiKey = orgSettings.openAiApiKey || process.env['OPENAI_API_KEY'];
+    return apiKey ? { provider, model: 'gpt-4o-mini', apiKey } : null;
+  }
+  const apiKey = orgSettings.anthropicApiKey || process.env['ANTHROPIC_API_KEY'];
+  return apiKey ? { provider, model: MODEL_MAP[orgSettings.defaultModel ?? 'claude-haiku-4-5'] ?? 'claude-haiku-4-5', apiKey } : null;
+}
+
 export async function generateOffboardingSummary(
   targetEmail: string,
   actions: OffboardingActionResult[],
   orgSettings: OrganizationSettings,
   alreadySuspended: boolean,
 ): Promise<string> {
-  const apiKey = orgSettings.anthropicApiKey || process.env['ANTHROPIC_API_KEY'];
+  const llm = resolveSummaryLlm(orgSettings);
   const successCount = actions.filter((a) => a.success).length;
   const errorCount = actions.length - successCount;
 
-  if (!apiKey) return fallbackSummary(targetEmail, actions);
+  if (!llm) return fallbackSummary(targetEmail, actions);
 
   const actionsText = actions
     .map((a) => `- ${a.success ? '✅' : '❌'} ${a.action}: ${a.success ? a.details : `ERROR — ${a.error}`}`)
@@ -378,18 +390,19 @@ List 3–5 concrete next steps the IT or People Ops team should take. Always inc
 Keep the tone professional but concise. Use bullet points for the follow-up list. Do not use headers with # characters — use bold (*text*) instead.`;
 
   try {
-    const client = new Anthropic({ apiKey });
-    const model = MODEL_MAP[orgSettings.defaultModel ?? 'claude-haiku-4-5'] ?? 'claude-haiku-4-5';
-    const message = await client.messages.create({
-      model,
-      max_tokens: 800,
-      messages: [{ role: 'user', content: prompt }],
+    const completion = await runLlmCompletion({
+      provider: llm.provider,
+      model: llm.model,
+      apiKey: llm.apiKey,
+      system: '',
+      messages: [{ role: 'user', text: prompt }],
+      tools: [],
+      maxTokens: 800,
     });
-    const block = message.content[0];
-    if (block && block.type === 'text') return block.text.trim();
-    return fallbackSummary(targetEmail, actions);
+    const text = completion.text.trim();
+    return text || fallbackSummary(targetEmail, actions);
   } catch (err) {
-    logger.error('Offboarding: Claude summary failed, using fallback', { err });
+    logger.error('Offboarding: AI summary failed, using fallback', { err, provider: llm.provider });
     return fallbackSummary(targetEmail, actions);
   }
 }

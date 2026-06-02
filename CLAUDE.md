@@ -130,9 +130,10 @@ Single-workspace shortcut: skip OAuth and just set `SLACK_BOT_TOKEN` +
 
 Automated employee offboarding ported from the standalone Slack app. Suspends a
 departing user's Workspace account, moves it to the Departed/Archive OU,
-optionally transfers Drive files to a delegate, generates a Claude audit
-summary, opens a tracking ticket, writes an audit-log row, and posts the summary
-to a Slack channel.
+optionally transfers Drive files to a delegate, generates an AI audit
+summary (via the org's selected AI platform — Claude or GPT — through
+`agent/llm.ts`), opens a tracking ticket, writes an audit-log row, and posts the
+summary to a Slack channel.
 
 - **Config (all in the web portal):** a single shared GCP project + service
   account backs every Google integration — set in **Settings → Google Cloud**
