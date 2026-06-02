@@ -13,6 +13,16 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIProvider } from '@enlight/shared';
 
+/**
+ * Deploy-time default AI platform from the AI_PROVIDER env var. Used as the
+ * fallback when an org hasn't explicitly chosen a platform in Settings → AI Keys
+ * (lets the deploy tool seed the choice). Returns undefined if unset/invalid.
+ */
+export function envDefaultProvider(): AIProvider | undefined {
+  const v = process.env['AI_PROVIDER'];
+  return v === 'openai' || v === 'anthropic' ? v : undefined;
+}
+
 // ── Neutral types ──────────────────────────────────────────────────────────
 
 export interface LlmToolCall {

@@ -10,7 +10,7 @@
  * GWS operations (suspend / move OU / Drive transfer) are idempotent, so a
  * retried job is safe.
  */
-import { runLlmCompletion } from '../agent/llm.js';
+import { runLlmCompletion, envDefaultProvider } from '../agent/llm.js';
 import { db } from '../db/client.js';
 import { offboardingEvents, organizations, users, comments, offboardingChecklists, offboardingChecklistSteps } from '../db/schema.js';
 import { auditLogs } from '../db/schema.js';
@@ -339,7 +339,7 @@ const MODEL_MAP: Record<ClaudeModel, string> = {
 
 /** Resolve the platform/model/key for the audit summary, honouring the org's AI platform. */
 function resolveSummaryLlm(orgSettings: OrganizationSettings): { provider: AIProvider; model: string; apiKey: string } | null {
-  const provider: AIProvider = orgSettings.aiProvider ?? 'anthropic';
+  const provider: AIProvider = orgSettings.aiProvider ?? envDefaultProvider() ?? 'anthropic';
   if (provider === 'openai') {
     const apiKey = orgSettings.openAiApiKey || process.env['OPENAI_API_KEY'];
     return apiKey ? { provider, model: 'gpt-4o-mini', apiKey } : null;

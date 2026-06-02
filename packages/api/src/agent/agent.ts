@@ -2,7 +2,7 @@ import { db } from '../db/client.js';
 import { requests, projects, comments, aiActions, users, organizations } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { agentToolDefinitions, executeTool } from './tools.js';
-import { runLlmCompletion, toLlmTools, type LlmMessage } from './llm.js';
+import { runLlmCompletion, toLlmTools, envDefaultProvider, type LlmMessage } from './llm.js';
 import { logger } from '../lib/logger.js';
 import { makeSlackClient } from '../slack/client.js';
 import { decryptOrgSettings } from '../lib/secretCrypto.js';
@@ -24,7 +24,7 @@ const CLAUDE_MODELS = new Set(['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-h
 function resolveLlm(orgSettings: OrganizationSettings, projectModel: string): {
   provider: AIProvider; model: string; apiKey: string;
 } {
-  const provider: AIProvider = orgSettings.aiProvider ?? 'anthropic';
+  const provider: AIProvider = orgSettings.aiProvider ?? envDefaultProvider() ?? 'anthropic';
   if (provider === 'openai') {
     const apiKey = orgSettings.openAiApiKey || process.env['OPENAI_API_KEY'];
     if (!apiKey) throw new Error('OpenAI API key not set. Add it in Settings → AI Keys or set OPENAI_API_KEY in your environment.');
