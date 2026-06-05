@@ -1,3 +1,4 @@
+CREATE EXTENSION IF NOT EXISTS vector;--> statement-breakpoint
 CREATE TYPE "public"."ai_model" AS ENUM('claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5');--> statement-breakpoint
 CREATE TYPE "public"."global_role" AS ENUM('super_admin', 'admin', 'agent', 'viewer');--> statement-breakpoint
 CREATE TYPE "public"."knowledge_file_type" AS ENUM('pdf', 'txt', 'rtf', 'docx');--> statement-breakpoint
