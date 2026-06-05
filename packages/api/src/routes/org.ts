@@ -11,6 +11,7 @@ import { fetchIdpMetadata } from '../lib/samlMetadata.js';
 import { encryptOrgSettings, decryptOrgSettings } from '../lib/secretCrypto.js';
 import { getStorageBackend } from '../lib/storage.js';
 import { verifyLicense, clearLicenseCache, isLicensingEnabled } from '../lib/license.js';
+import { getUpdateInfo } from '../lib/version.js';
 import type { OrganizationSettings, StorageProvider } from '@enlight/shared';
 
 const router = Router();
@@ -665,6 +666,16 @@ router.delete('/license', requirePermission('org.manage_settings'), async (req, 
       .where(eq(organizations.id, req.user!.orgId));
     clearLicenseCache();
     res.json({ status: 'unlicensed', message: 'License key removed.' });
+  } catch (err) { next(err); }
+});
+
+// ── Version / updates ─────────────────────────────────────────────────────────
+
+// GET /org/updates — current version + whether a newer one is available upstream.
+router.get('/updates', requirePermission('org.manage_settings'), async (req, res, next) => {
+  try {
+    const force = req.query['force'] === 'true' || req.query['force'] === '1';
+    res.json(await getUpdateInfo(force));
   } catch (err) { next(err); }
 });
 

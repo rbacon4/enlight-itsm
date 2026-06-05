@@ -7,14 +7,14 @@ import { RoleManager } from '../components/RoleManager.js';
 import { ChecklistBuilder } from '../components/ChecklistBuilder.js';
 import {
   SlidersHorizontal, Sparkles, Palette, Mail, Hash, Cloud, UserMinus, ShieldCheck, KeyRound, Lock,
-  Webhook, BadgeCheck, Copy, RefreshCw, Trash2, Plus,
+  Webhook, BadgeCheck, Copy, RefreshCw, Trash2, Plus, Download,
   type LucideIcon,
 } from 'lucide-react';
 import type { OrgDetails, MCPApiKeyPublic, MCPApiKeyCreated, Project, EmbeddingProvider, AIProvider, SlackStatus, GlobalRole, SsoConnectionInfo, SamlMetadataValidation } from '@enlight/shared';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-type Tab = 'general' | 'ai-keys' | 'branding' | 'email' | 'slack' | 'cloud' | 'offboarding' | 'roles' | 'mcp-keys' | 'security' | 'webhooks' | 'license';
+type Tab = 'general' | 'ai-keys' | 'branding' | 'email' | 'slack' | 'cloud' | 'offboarding' | 'roles' | 'mcp-keys' | 'security' | 'webhooks' | 'license' | 'updates';
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'general',     label: 'General',      icon: SlidersHorizontal },
@@ -29,6 +29,7 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'security',    label: 'Security',     icon: Lock },
   { id: 'webhooks',    label: 'Webhooks',     icon: Webhook },
   { id: 'license',     label: 'License',      icon: BadgeCheck },
+  { id: 'updates',     label: 'Updates',      icon: Download },
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -2163,6 +2164,139 @@ function RolesTab() {
   );
 }
 
+// ── Updates tab ───────────────────────────────────────────────────────────────
+
+interface UpdateInfo {
+  current: { version: string; commit: string | null };
+  repo: string;
+  branch: string;
+  latestCommit: { sha: string; shortSha: string; message: string; date: string; url: string } | null;
+  latestRelease: { tag: string; name: string; url: string; publishedAt: string } | null;
+  updateAvailable: boolean | null;
+  checkedAt: string;
+  error?: string;
+}
+
+function relTime(iso: string): string {
+  if (!iso) return '';
+  const d = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (d < 60) return 'just now';
+  if (d < 3600) return `${Math.floor(d / 60)}m ago`;
+  if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
+  return `${Math.floor(d / 86400)}d ago`;
+}
+
+function UpdatesTab() {
+  const qc = useQueryClient();
+  const { data, isLoading, isFetching } = useQuery<UpdateInfo>({
+    queryKey: ['updates'],
+    queryFn: () => api.get('/org/updates'),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const recheck = () => qc.fetchQuery({ queryKey: ['updates'], queryFn: () => api.get<UpdateInfo>('/org/updates?force=true') })
+    .then((d) => qc.setQueryData(['updates'], d));
+
+  const updateCmd = `cd /opt/enlight
+git -C enlight-itsm pull
+docker compose --env-file /opt/enlight/.env up -d --build`;
+
+  const status = data?.updateAvailable;
+
+  return (
+    <Section title="Software Updates">
+      {isLoading && <div style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>Checking…</div>}
+
+      {data && (
+        <>
+          {/* Status banner */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 8, marginBottom: 20,
+            background: status === true ? '#fef3c7' : status === false ? '#d1fae5' : 'var(--color-surface-2)',
+            border: `1px solid ${status === true ? '#fcd34d' : status === false ? '#6ee7b7' : 'var(--color-border)'}`,
+          }}>
+            <Download size={18} color={status === true ? '#92400e' : status === false ? '#065f46' : 'var(--color-text-muted)'} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: status === true ? '#92400e' : status === false ? '#065f46' : 'var(--color-text)' }}>
+                {status === true ? 'An update is available' : status === false ? 'You\'re up to date' : 'Update status'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                {status === null && 'Showing the latest upstream commit (build commit unknown, so we can\'t compare automatically).'}
+                {status === false && 'Your deployment matches the latest commit on the tracked branch.'}
+                {status === true && 'A newer commit is available upstream — see the update steps below.'}
+              </div>
+            </div>
+            <button onClick={recheck} disabled={isFetching}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6,
+                border: '1px solid var(--color-border)', background: 'var(--color-surface)', cursor: 'pointer', fontSize: 12 }}>
+              <RefreshCw size={13} style={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }} />
+              Check now
+            </button>
+          </div>
+
+          {/* Version table */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 20px', fontSize: 13, marginBottom: 20 }}>
+            <div style={{ color: 'var(--color-text-muted)' }}>Installed version</div>
+            <div>
+              <strong>v{data.current.version}</strong>
+              {data.current.commit && <span style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace', marginLeft: 8 }}>({data.current.commit})</span>}
+            </div>
+
+            {data.latestCommit && (
+              <>
+                <div style={{ color: 'var(--color-text-muted)' }}>Latest on {data.branch}</div>
+                <div>
+                  <a href={data.latestCommit.url} target="_blank" rel="noreferrer" style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>
+                    {data.latestCommit.shortSha}
+                  </a>
+                  <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>{relTime(data.latestCommit.date)}</span>
+                  <div style={{ color: 'var(--color-text-muted)', fontSize: 12, marginTop: 2 }}>{data.latestCommit.message}</div>
+                </div>
+              </>
+            )}
+
+            {data.latestRelease && (
+              <>
+                <div style={{ color: 'var(--color-text-muted)' }}>Latest release</div>
+                <div>
+                  <a href={data.latestRelease.url} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>
+                    {data.latestRelease.name}
+                  </a>
+                  <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>{relTime(data.latestRelease.publishedAt)}</span>
+                </div>
+              </>
+            )}
+
+            <div style={{ color: 'var(--color-text-muted)' }}>Repository</div>
+            <div><a href={`https://github.com/${data.repo}`} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>{data.repo}</a></div>
+          </div>
+
+          {data.error && (
+            <div style={{ fontSize: 12, color: 'var(--color-danger)', marginBottom: 16 }}>
+              Couldn't reach GitHub: {data.error}
+            </div>
+          )}
+
+          {/* How to update */}
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>How to update</div>
+          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 10 }}>
+            Updates are applied on the server (single-container / Docker deploy). SSH into your
+            instance and run:
+          </p>
+          <pre style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 8,
+            padding: '12px 14px', fontSize: 12, fontFamily: 'monospace', overflowX: 'auto', lineHeight: 1.6 }}>
+{updateCmd}
+          </pre>
+          <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 8 }}>
+            Database migrations run automatically on restart. Back up your database first
+            (the worker's nightly backup, or <code>pg_dump</code>) before a major update.
+          </p>
+        </>
+      )}
+    </Section>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
@@ -2264,6 +2398,7 @@ export function SettingsPage() {
           {activeTab === 'security' && <SecurityTab org={org} onSaved={handleSaved} />}
           {activeTab === 'webhooks' && <WebhooksTab />}
           {activeTab === 'license'  && <LicenseTab />}
+          {activeTab === 'updates'  && <UpdatesTab />}
         </div>
       </div>
     </div>

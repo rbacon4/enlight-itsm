@@ -2,10 +2,12 @@ import 'dotenv/config';
 import { app } from './app.js';
 import { startSlack } from './slack/index.js';
 import { logLicenseStatus } from './lib/license.js';
+import { logVersion } from './lib/version.js';
 import { logger } from './lib/logger.js';
 
 const PORT = parseInt(process.env['PORT'] ?? '3000', 10);
 
+logVersion();
 logLicenseStatus();
 
 app.listen(PORT, () => {
