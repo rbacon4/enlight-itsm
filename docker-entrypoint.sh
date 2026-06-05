@@ -23,7 +23,7 @@ WORKER_PID=$!
 MCP_PID=""
 if [ "${MCP_ENABLED:-false}" = "true" ]; then
   echo "[entrypoint] Starting MCP server (port ${MCP_PORT:-3001})…"
-  node /app/packages/mcp/dist/index.js &
+  node /app/packages/mcp/dist/packages/mcp/src/index.js &
   MCP_PID=$!
 fi
 

@@ -79,7 +79,7 @@ To use Enlight as an MCP server inside Claude Code, add to your `.claude/mcp.jso
   "mcpServers": {
     "enlight": {
       "command": "node",
-      "args": ["packages/mcp/dist/index.js", "--stdio"],
+      "args": ["packages/mcp/dist/packages/mcp/src/index.js", "--stdio"],
       "cwd": "/path/to/enlight_itsm"
     }
   }

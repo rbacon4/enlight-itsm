@@ -11,7 +11,7 @@
 #
 # MCP server is exposed on MCP_PORT (default 3001) when MCP_ENABLED=true.
 # For Claude Code --stdio mode, run the container with:
-#   docker exec -i <container> node packages/mcp/dist/index.js --stdio
+#   docker exec -i <container> node packages/mcp/dist/packages/mcp/src/index.js --stdio
 # ─────────────────────────────────────────────────────────────────────────────
 
 FROM node:22-alpine AS base
