@@ -14,7 +14,7 @@
 #   docker exec -i <container> node packages/mcp/dist/index.js --stdio
 # ─────────────────────────────────────────────────────────────────────────────
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN corepack enable pnpm
 WORKDIR /app
 
@@ -32,6 +32,10 @@ RUN pnpm install --frozen-lockfile
 
 # ── build: compile shared, api, worker, mcp and the SPA ──────────────────────
 FROM deps AS build
+# tsc/vite can exceed V8's default heap cap on small (2 GB) build hosts, which
+# aborts the build with "Reached heap limit / heap out of memory". Raise the
+# old-space limit; the host swapfile backs anything beyond physical RAM.
+ENV NODE_OPTIONS=--max-old-space-size=2048
 COPY tsconfig.base.json ./
 COPY shared/ ./shared/
 COPY packages/api/ ./packages/api/
@@ -73,8 +77,9 @@ COPY packages/worker/package.json ./packages/worker/
 COPY packages/mcp/package.json ./packages/mcp/
 
 # Production dependencies (with workspace symlinks) from prod-deps.
+# Note: @enlight/shared has no runtime deps, so prod-deps creates no
+# shared/node_modules — don't COPY it (the COPY would fail on a missing path).
 COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=prod-deps /app/shared/node_modules ./shared/node_modules
 COPY --from=prod-deps /app/packages/api/node_modules ./packages/api/node_modules
 COPY --from=prod-deps /app/packages/worker/node_modules ./packages/worker/node_modules
 COPY --from=prod-deps /app/packages/mcp/node_modules ./packages/mcp/node_modules
