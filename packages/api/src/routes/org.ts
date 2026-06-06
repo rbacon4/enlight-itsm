@@ -11,7 +11,7 @@ import { fetchIdpMetadata } from '../lib/samlMetadata.js';
 import { encryptOrgSettings, decryptOrgSettings } from '../lib/secretCrypto.js';
 import { getStorageBackend } from '../lib/storage.js';
 import { verifyLicense, clearLicenseCache, isLicensingEnabled } from '../lib/license.js';
-import { getUpdateInfo } from '../lib/version.js';
+import { getUpdateInfo, applyUpdate } from '../lib/version.js';
 import type { OrganizationSettings, StorageProvider } from '@enlight/shared';
 
 const router = Router();
@@ -676,6 +676,22 @@ router.get('/updates', requirePermission('org.manage_settings'), async (req, res
   try {
     const force = req.query['force'] === 'true' || req.query['force'] === '1';
     res.json(await getUpdateInfo(force));
+  } catch (err) { next(err); }
+});
+
+// POST /org/update/apply — trigger a self-update: git pull + docker compose rebuild.
+// Requires the Docker socket mounted in the container (see docker-compose.yml).
+// Returns 202 immediately — the container restarts during the rebuild so the
+// response must be sent before the process exits.
+router.post('/update/apply', requirePermission('org.manage_settings'), async (req, res, next) => {
+  try {
+    const error = await applyUpdate();
+    if (error) {
+      res.status(422).json({ error: 'UPDATE_UNAVAILABLE', message: error });
+      return;
+    }
+    // 202 Accepted — update is running in the background; container will restart.
+    res.status(202).json({ started: true, message: 'Update started. The app will restart automatically in a few minutes.' });
   } catch (err) { next(err); }
 });
 

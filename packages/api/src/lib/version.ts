@@ -125,3 +125,43 @@ export async function getUpdateInfo(force = false): Promise<UpdateInfo> {
 export function logVersion(): void {
   logger.info('Enlight version', { version: VERSION, commit: COMMIT ?? 'unknown' });
 }
+
+/**
+ * Apply an in-place update: git pull the source, then trigger a Docker Compose
+ * rebuild + restart. Requires the Docker socket mounted and docker/docker-compose
+ * available in the container image (see Dockerfile.prod and docker-compose.yml).
+ *
+ * The rebuild replaces the running container, so we spawn detached and return
+ * immediately — the HTTP response flushes before the process is replaced.
+ *
+ * Returns an error string if prerequisites are missing, otherwise null.
+ */
+export async function applyUpdate(): Promise<string | null> {
+  const dir = (process.env['HOST_ENLIGHT_DIR'] ?? '/opt/enlight').replace(/\/$/, '');
+
+  // Verify the docker socket is accessible before trying anything
+  try {
+    const { access } = await import('node:fs/promises');
+    await access('/var/run/docker.sock');
+  } catch {
+    return 'Docker socket not mounted. Add the socket mount to docker-compose.yml and redeploy once first (see Settings → Updates docs).';
+  }
+
+  const { spawn } = await import('node:child_process');
+
+  const cmd = [
+    `git -C ${dir}/enlight-itsm pull`,
+    `docker compose --env-file ${dir}/.env -f ${dir}/docker-compose.yml up -d --build`,
+  ].join(' && ');
+
+  logger.info('Applying update', { dir });
+
+  const child = spawn('sh', ['-c', cmd], {
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env, HOME: '/root' },
+  });
+  child.unref(); // outlive the Node process restart triggered by the rebuild
+
+  return null;
+}

@@ -2197,9 +2197,27 @@ function UpdatesTab() {
   const recheck = () => qc.fetchQuery({ queryKey: ['updates'], queryFn: () => api.get<UpdateInfo>('/org/updates?force=true') })
     .then((d) => qc.setQueryData(['updates'], d));
 
+  const [applying, setApplying] = useState(false);
+  const [applyResult, setApplyResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleApplyUpdate = async () => {
+    if (!confirm('Apply update now? The app will pull the latest code and restart (a few minutes of downtime).')) return;
+    setApplying(true);
+    setApplyResult(null);
+    try {
+      const r = await api.post<{ started: boolean; message: string }>('/org/update/apply', {});
+      setApplyResult({ ok: true, message: r.message });
+    } catch (e: unknown) {
+      const msg = (e as { message?: string }).message ?? 'Update failed';
+      setApplyResult({ ok: false, message: msg });
+    } finally {
+      setApplying(false);
+    }
+  };
+
   const updateCmd = `cd /opt/enlight
-git -C enlight-itsm pull
-docker compose --env-file /opt/enlight/.env up -d --build`;
+sudo git -C enlight-itsm pull
+sudo docker compose --env-file /opt/enlight/.env up -d --build`;
 
   const status = data?.updateAvailable;
 
@@ -2277,16 +2295,66 @@ docker compose --env-file /opt/enlight/.env up -d --build`;
             </div>
           )}
 
-          {/* How to update */}
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>How to update</div>
-          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 10 }}>
-            Updates are applied on the server (single-container / Docker deploy). SSH into your
-            instance and run:
-          </p>
-          <pre style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 8,
-            padding: '12px 14px', fontSize: 12, fontFamily: 'monospace', overflowX: 'auto', lineHeight: 1.6 }}>
+          {/* Apply update */}
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Apply update</div>
+
+          <div style={{
+            padding: '16px', borderRadius: 8, border: '1px solid var(--color-border)',
+            background: 'var(--color-surface-raised)', marginBottom: 16,
+          }}>
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 0, marginBottom: 14 }}>
+              Click <strong>Apply Update</strong> to pull the latest code and rebuild the
+              app automatically. The instance will restart — expect a few minutes of downtime
+              while Docker rebuilds the image.
+            </p>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <button
+                className="btn-primary"
+                onClick={handleApplyUpdate}
+                disabled={applying}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <Download size={14} />
+                {applying ? 'Starting update…' : 'Apply Update'}
+              </button>
+
+              {applyResult && (
+                <span style={{ fontSize: 13, color: applyResult.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                  {applyResult.ok ? '✓ ' : '✗ '}{applyResult.message}
+                </span>
+              )}
+            </div>
+
+            {applyResult?.ok && (
+              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 12, marginBottom: 0 }}>
+                The rebuild is running in the background. This page will become temporarily unavailable
+                (502) while Docker restarts the container — refresh after a few minutes.
+              </p>
+            )}
+
+            {applyResult && !applyResult.ok && (
+              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 10, marginBottom: 0 }}>
+                One-time fix: add the Docker socket mount to your deploy
+                (<code>docker-compose.yml</code> → app service → volumes:
+                <code> - /var/run/docker.sock:/var/run/docker.sock</code>), then run{' '}
+                <code>sudo docker compose up -d</code> on the server to pick it up. After that
+                the button will work for all future updates.
+              </p>
+            )}
+          </div>
+
+          {/* Manual fallback */}
+          <details style={{ marginBottom: 8 }}>
+            <summary style={{ fontSize: 13, color: 'var(--color-text-muted)', cursor: 'pointer', userSelect: 'none' }}>
+              Or update manually via SSH
+            </summary>
+            <pre style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 8,
+              padding: '12px 14px', fontSize: 12, fontFamily: 'monospace', overflowX: 'auto', lineHeight: 1.6, marginTop: 10 }}>
 {updateCmd}
-          </pre>
+            </pre>
+          </details>
+
           <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 8 }}>
             Database migrations run automatically on restart. Back up your database first
             (the worker's nightly backup, or <code>pg_dump</code>) before a major update.
