@@ -14,7 +14,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 
@@ -232,40 +231,64 @@ export async function applyUpdate(): Promise<string | null> {
   }
 
   const { spawn } = await import('node:child_process');
-  const { tmpdir } = await import('node:os');
 
-  const logFile = path.join(tmpdir(), `enlight-update-${Date.now()}.log`);
+  // Write the log to the host-mounted volume so it persists when the container
+  // is stopped and replaced during the update. /tmp would be lost.
+  const logFile = path.join(dir, 'update.log');
   updateLogFile = logFile;
+  fs.writeFileSync(logFile, ''); // clear previous run
 
-  // Capture the commit SHA after the pull so it gets baked into the new image
-  // via the APP_COMMIT build arg. The export is evaluated by the shell after
-  // the pull completes, so it always reflects the freshly pulled HEAD.
-  // Use `docker-compose` (the standalone binary installed in the image) rather
-  // than `docker compose` (the CLI plugin, which is not registered in the container).
-  const cmd = [
-    `git -C ${dir}/enlight-itsm pull`,
-    `export APP_COMMIT=$(git -C ${dir}/enlight-itsm rev-parse HEAD 2>/dev/null || echo "")`,
-    `APP_COMMIT=$APP_COMMIT docker-compose --env-file ${dir}/.env -f ${dir}/docker-compose.yml up -d --build`,
-  ].join(' && ');
+  // Write the update script to the host volume to avoid shell-quoting issues
+  // and so the sidecar container can read it.
+  const scriptPath = path.join(dir, '.update-script.sh');
+  fs.writeFileSync(scriptPath, [
+    '#!/bin/sh',
+    // Redirect all output to the log file on the host volume so the UI can
+    // tail it even after the app container restarts.
+    `exec >> '${logFile}' 2>&1`,
+    `echo "[$(date -u +%FT%TZ)] Installing tooling…"`,
+    `apk add --no-cache docker-compose git`,
+    `echo "[$(date -u +%FT%TZ)] Pulling latest source…"`,
+    `git -C '${dir}/enlight-itsm' pull`,
+    `APP_COMMIT=$(git -C '${dir}/enlight-itsm' rev-parse HEAD 2>/dev/null || echo "")`,
+    `export APP_COMMIT`,
+    `echo "[$(date -u +%FT%TZ)] Rebuilding and restarting (APP_COMMIT=$APP_COMMIT)…"`,
+    `APP_COMMIT=$APP_COMMIT docker-compose --env-file '${dir}/.env' -f '${dir}/docker-compose.yml' up -d --build`,
+    `echo "[$(date -u +%FT%TZ)] Done."`,
+  ].join('\n') + '\n');
 
-  logger.info('Applying update', { dir, logFile });
+  // Launch a short-lived Alpine sidecar via the host Docker daemon. Because the
+  // sidecar is managed by the daemon directly (not by this container), it
+  // survives when docker-compose stops and restarts the app container — solving
+  // the race where the container killed the process that was about to start the
+  // new container.
+  const launchCmd = [
+    `docker rm -f enlight-updater 2>/dev/null || true`,
+    `docker run -d --rm --name enlight-updater`,
+    `  -v /var/run/docker.sock:/var/run/docker.sock`,
+    `  -v '${dir}':'${dir}'`,
+    `  alpine sh '${scriptPath}'`,
+  ].join(' ');
 
-  setUpdateState('running', { startedAt: new Date().toISOString(), log: ['Starting update...'] });
+  logger.info('Applying update via sidecar', { dir, logFile, scriptPath });
+  setUpdateState('running', { startedAt: new Date().toISOString(), log: ['Launching update sidecar…'] });
 
   try {
-    const child = spawn('sh', ['-c', cmd], {
+    const child = spawn('sh', ['-c', launchCmd], {
       detached: true,
-      stdio: ['ignore', fs.openSync(logFile, 'w'), fs.openSync(logFile, 'a')],
+      stdio: 'ignore',
       env: { ...process.env, HOME: '/root' },
     });
 
     child.on('exit', (code) => {
-      setUpdateState(code === 0 ? 'done' : 'error', {
-        completedAt: new Date().toISOString(),
-      });
+      // code 0 means the sidecar container started successfully; actual update
+      // progress is tracked via the log file on the host volume.
+      if (code !== 0) {
+        setUpdateState('error', { completedAt: new Date().toISOString() });
+      }
     });
 
-    child.unref(); // outlive the Node process restart triggered by the rebuild
+    child.unref();
   } catch (err) {
     setUpdateState('error', { completedAt: new Date().toISOString() });
     return err instanceof Error ? err.message : String(err);
