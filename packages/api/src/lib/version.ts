@@ -79,8 +79,9 @@ const updateStatus: UpdateStatus = { state: 'idle', log: [] };
 let updateLogFile: string | null = null;
 
 export function getUpdateStatus(): UpdateStatus {
-  // If running, try to tail the log file
-  if (updateStatus.state === 'running' && updateLogFile) {
+  // Re-read the log file in all active/terminal states so output is visible
+  // even after the process exits (including on failure).
+  if (updateLogFile && updateStatus.state !== 'idle') {
     try {
       const content = fs.readFileSync(updateLogFile, 'utf8');
       const lines = content.split('\n').filter(Boolean);
@@ -239,10 +240,12 @@ export async function applyUpdate(): Promise<string | null> {
   // Capture the commit SHA after the pull so it gets baked into the new image
   // via the APP_COMMIT build arg. The export is evaluated by the shell after
   // the pull completes, so it always reflects the freshly pulled HEAD.
+  // Use `docker-compose` (the standalone binary installed in the image) rather
+  // than `docker compose` (the CLI plugin, which is not registered in the container).
   const cmd = [
     `git -C ${dir}/enlight-itsm pull`,
     `export APP_COMMIT=$(git -C ${dir}/enlight-itsm rev-parse HEAD 2>/dev/null || echo "")`,
-    `APP_COMMIT=$APP_COMMIT docker compose --env-file ${dir}/.env -f ${dir}/docker-compose.yml up -d --build`,
+    `APP_COMMIT=$APP_COMMIT docker-compose --env-file ${dir}/.env -f ${dir}/docker-compose.yml up -d --build`,
   ].join(' && ');
 
   logger.info('Applying update', { dir, logFile });

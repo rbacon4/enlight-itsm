@@ -72,7 +72,7 @@ ENV MCP_PORT=3001
 # bash for the entrypoint supervisor; postgresql-client provides pg_dump for the
 # nightly backup job. (If your DB is a newer major than the client, set
 # BACKUP_PGDUMP_PATH or use a matching client image.)
-RUN apk add --no-cache bash postgresql-client docker-cli docker-compose
+RUN apk add --no-cache bash postgresql-client docker-cli docker-compose git
 
 # Workspace manifests (needed for @enlight/shared resolution via node_modules symlinks).
 COPY package.json pnpm-workspace.yaml ./
