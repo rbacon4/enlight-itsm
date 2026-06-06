@@ -7,7 +7,7 @@ import { RoleManager } from '../components/RoleManager.js';
 import { ChecklistBuilder } from '../components/ChecklistBuilder.js';
 import {
   SlidersHorizontal, Sparkles, Palette, Mail, Hash, Cloud, UserMinus, ShieldCheck, KeyRound, Lock,
-  Webhook, BadgeCheck, Copy, RefreshCw, Trash2, Plus, Download, Users, Database, Variable,
+  Webhook, BadgeCheck, Copy, RefreshCw, Trash2, Plus, Download, Users, Database, Variable, Network,
   CheckCircle, XCircle, AlertTriangle, Eye, EyeOff, Loader2,
   type LucideIcon,
 } from 'lucide-react';
@@ -15,27 +15,25 @@ import type { OrgDetails, MCPApiKeyPublic, MCPApiKeyCreated, Project, EmbeddingP
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-type Tab = 'general' | 'ai-keys' | 'branding' | 'email' | 'slack' | 'cloud' | 'offboarding' | 'rippling' | 'jumpcloud' | 'okta' | 'secrets' | 'variables' | 'roles' | 'mcp-keys' | 'security' | 'webhooks' | 'license' | 'updates';
+type Tab = 'general' | 'ai-keys' | 'branding' | 'email' | 'slack' | 'cloud' | 'offboarding' | 'integrations' | 'secrets' | 'variables' | 'roles' | 'mcp-keys' | 'security' | 'webhooks' | 'license' | 'updates';
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
-  { id: 'general',     label: 'General',      icon: SlidersHorizontal },
-  { id: 'ai-keys',     label: 'AI Keys',      icon: Sparkles },
-  { id: 'branding',    label: 'Branding',     icon: Palette },
-  { id: 'email',       label: 'Email',        icon: Mail },
-  { id: 'slack',       label: 'Slack',        icon: Hash },
-  { id: 'cloud',       label: 'Cloud',        icon: Cloud },
-  { id: 'offboarding', label: 'Offboarding',  icon: UserMinus },
-  { id: 'rippling',    label: 'Rippling',     icon: Users },
-  { id: 'jumpcloud',   label: 'JumpCloud',    icon: Users },
-  { id: 'okta',        label: 'Okta',         icon: Users },
-  { id: 'secrets',     label: 'Secrets',      icon: Lock },
-  { id: 'variables',   label: 'Variables',    icon: Variable },
-  { id: 'roles',       label: 'Roles',        icon: ShieldCheck },
-  { id: 'mcp-keys',    label: 'MCP Keys',     icon: KeyRound },
-  { id: 'security',    label: 'Security',     icon: Lock },
-  { id: 'webhooks',    label: 'Webhooks',     icon: Webhook },
-  { id: 'license',     label: 'License',      icon: BadgeCheck },
-  { id: 'updates',     label: 'Updates',      icon: Download },
+  { id: 'general',      label: 'General',       icon: SlidersHorizontal },
+  { id: 'ai-keys',      label: 'AI Keys',       icon: Sparkles },
+  { id: 'branding',     label: 'Branding',      icon: Palette },
+  { id: 'email',        label: 'Email',         icon: Mail },
+  { id: 'slack',        label: 'Slack',         icon: Hash },
+  { id: 'cloud',        label: 'Cloud',         icon: Cloud },
+  { id: 'offboarding',  label: 'Offboarding',   icon: UserMinus },
+  { id: 'integrations', label: 'Integrations',  icon: Network },
+  { id: 'secrets',      label: 'Secrets',       icon: Lock },
+  { id: 'variables',    label: 'Variables',     icon: Variable },
+  { id: 'roles',        label: 'Roles',         icon: ShieldCheck },
+  { id: 'mcp-keys',     label: 'MCP Keys',      icon: KeyRound },
+  { id: 'security',     label: 'Security',      icon: Lock },
+  { id: 'webhooks',     label: 'Webhooks',      icon: Webhook },
+  { id: 'license',      label: 'License',       icon: BadgeCheck },
+  { id: 'updates',      label: 'Updates',       icon: Download },
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -2363,69 +2361,10 @@ function UpdatesTab() {
 
           {data.error && <div style={{ fontSize: 12, color: 'var(--color-danger)', marginBottom: 16 }}>Could not reach update source: {data.error}</div>}
 
-          {/* Apply update */}
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Apply update</div>
-
-          <div style={{
-            padding: '16px', borderRadius: 8, border: '1px solid var(--color-border)',
-            background: 'var(--color-surface-raised)', marginBottom: 16,
-          }}>
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 0, marginBottom: 14 }}>
-              Click <strong>Apply Update</strong> to pull the latest code and rebuild the
-              app automatically. The instance will restart — expect a few minutes of downtime
-              while Docker rebuilds the image.
-            </p>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <button
-                className="btn-primary"
-                onClick={handleApplyUpdate}
-                disabled={applying}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                {applying ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
-                {applying ? 'Starting update…' : 'Apply Update'}
-              </button>
-            </div>
-
-            {/* Live progress panel */}
-            {applyStatus && (
-              <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 6,
-                background: applyStatus.state === 'error' ? '#fef2f2' : applyStatus.state === 'done' ? '#f0fdf4' : 'var(--color-surface-2)',
-                border: `1px solid ${applyStatus.state === 'error' ? '#fecaca' : applyStatus.state === 'done' ? '#bbf7d0' : 'var(--color-border)'}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  {applyStatus.state === 'running' && <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-primary)' }} />}
-                  {applyStatus.state === 'done' && <CheckCircle size={13} color="#16a34a" />}
-                  {applyStatus.state === 'error' && <XCircle size={13} color="var(--color-danger)" />}
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>
-                    {applyStatus.state === 'running' ? 'Updating…' : applyStatus.state === 'done' ? 'Update complete' : 'Update failed'}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12, fontFamily: 'monospace', background: 'rgba(0,0,0,0.05)', borderRadius: 4, padding: '8px 10px', maxHeight: 200, overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
-                  {applyStatus.log.length > 0 ? applyStatus.log.join('\n') : 'Waiting for output…'}
-                </div>
-                {applyStatus.state === 'done' && (
-                  <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 8, marginBottom: 0 }}>
-                    The rebuild is running in the background. This page will become temporarily unavailable (502) while Docker restarts — refresh after a few minutes.
-                  </p>
-                )}
-                {applyStatus.state === 'error' && (
-                  <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 8, marginBottom: 0 }}>
-                    One-time fix: add the Docker socket mount to your deploy
-                    (<code>docker-compose.yml</code> → app service → volumes:
-                    <code> - /var/run/docker.sock:/var/run/docker.sock</code>), then run{' '}
-                    <code>sudo docker compose up -d</code> on the server.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Manual fallback */}
+          {/* Manual fallback — always available */}
           <details style={{ marginBottom: 8 }}>
             <summary style={{ fontSize: 13, color: 'var(--color-text-muted)', cursor: 'pointer', userSelect: 'none' }}>
-              Or update manually via SSH
+              Update manually via SSH
             </summary>
             <pre style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 8,
               padding: '12px 14px', fontSize: 12, fontFamily: 'monospace', overflowX: 'auto', lineHeight: 1.6, marginTop: 10 }}>
@@ -2560,11 +2499,9 @@ export function SettingsPage() {
           {activeTab === 'email'    && <EmailTab    org={org} onSaved={handleSaved} />}
           {activeTab === 'slack'    && <SlackTab    org={org} onSaved={handleSaved} />}
           {activeTab === 'cloud'    && <CloudTab    org={org} onSaved={handleSaved} />}
-          {activeTab === 'offboarding' && <OffboardingTab org={org} onSaved={handleSaved} />}
-          {activeTab === 'rippling'   && <RipplingTab />}
-          {activeTab === 'jumpcloud'  && <JumpCloudTab />}
-          {activeTab === 'okta'       && <OktaTab />}
-          {activeTab === 'secrets'    && <SecretsTab />}
+          {activeTab === 'offboarding'  && <OffboardingTab org={org} onSaved={handleSaved} />}
+          {activeTab === 'integrations' && <IntegrationsTab />}
+          {activeTab === 'secrets'      && <SecretsTab />}
           {activeTab === 'variables'  && <VariablesTab />}
           {activeTab === 'roles'    && <RolesTab />}
           {activeTab === 'mcp-keys' && <MCPKeysTab />}
@@ -2873,6 +2810,39 @@ function LicenseTab() {
         )
       )}
     </Section>
+  );
+}
+
+// ── Tab: Integrations (Rippling / JumpCloud / Okta) ──────────────────────────
+
+type IntegrationProvider = 'rippling' | 'jumpcloud' | 'okta';
+
+function IntegrationsTab() {
+  const [provider, setProvider] = useState<IntegrationProvider>('rippling');
+
+  const tabBtn = (id: IntegrationProvider, label: string) => (
+    <button key={id} onClick={() => setProvider(id)} style={{
+      background: 'none', border: 'none', cursor: 'pointer', padding: '8px 14px', fontSize: 13,
+      color: provider === id ? 'var(--color-text)' : 'var(--color-text-muted)',
+      borderBottom: `2px solid ${provider === id ? 'var(--color-primary)' : 'transparent'}`,
+      fontWeight: provider === id ? 600 : 400, marginBottom: -1,
+    }}>{label}</button>
+  );
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+        Connect directory integrations for employee directory sync and automated offboarding.
+      </div>
+      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--color-border)', marginBottom: 24 }}>
+        {tabBtn('rippling', 'Rippling IT')}
+        {tabBtn('jumpcloud', 'JumpCloud')}
+        {tabBtn('okta', 'Okta')}
+      </div>
+      {provider === 'rippling'  && <RipplingTab />}
+      {provider === 'jumpcloud' && <JumpCloudTab />}
+      {provider === 'okta'      && <OktaTab />}
+    </div>
   );
 }
 
