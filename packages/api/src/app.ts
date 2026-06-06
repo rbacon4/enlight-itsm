@@ -34,6 +34,10 @@ import { isLicensingEnabled } from './lib/license.js';
 const isProduction = process.env['NODE_ENV'] === 'production';
 const app = express();
 
+// Trust the first proxy (Caddy in production) so express-rate-limit and
+// other middleware can read the real client IP from X-Forwarded-For.
+app.set('trust proxy', 1);
+
 // Content-Security-Policy tuned for the bundled SPA: hashed self-hosted JS/CSS,
 // inline styles (React style props), data: URIs for brand logos/fonts, and
 // same-origin XHR to /api. frame-ancestors 'none' hardens against clickjacking
