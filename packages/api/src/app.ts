@@ -30,9 +30,30 @@ import { isLicensingEnabled } from './lib/license.js';
 const isProduction = process.env['NODE_ENV'] === 'production';
 const app = express();
 
-// CSP is disabled because in production this same server also serves the built
-// SPA (hashed assets + data: brand logos); other helmet protections stay on.
-app.use(helmet({ contentSecurityPolicy: false }));
+// Content-Security-Policy tuned for the bundled SPA: hashed self-hosted JS/CSS,
+// inline styles (React style props), data: URIs for brand logos/fonts, and
+// same-origin XHR to /api. frame-ancestors 'none' hardens against clickjacking
+// (alongside X-Frame-Options). Tighten script-src with nonces once any inline
+// scripts are eliminated.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:'],
+        fontSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+  }),
+);
 app.use(
   cors({
     origin: process.env['WEB_URL'] ?? 'http://localhost:5173',

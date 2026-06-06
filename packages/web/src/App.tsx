@@ -50,6 +50,35 @@ function SetupGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Inverse guard for the /setup route: once the instance is initialised the
+// wizard must not render (the API also enforces this with a 409). Redirect a
+// configured instance's /setup visitors to /login.
+function SetupRoute() {
+  const [checking, setChecking] = useState(true);
+  const [allowed, setAllowed] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    api.get<{ needsSetup: boolean }>('/auth/setup-status')
+      .then(({ needsSetup }) => {
+        if (!needsSetup) navigate('/login', { replace: true });
+        setAllowed(needsSetup);
+      })
+      .catch(() => setAllowed(true)) // network error — show the wizard rather than dead-end
+      .finally(() => setChecking(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (checking) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>
+        Loading…
+      </div>
+    );
+  }
+  if (!allowed) return null; // navigation already fired
+  return <SetupPage />;
+}
+
 // ── Protected routes ───────────────────────────────────────────────────────────
 
 function ProtectedRoutes() {
@@ -91,7 +120,7 @@ export function App() {
     <AuthProvider>
       <Routes>
         {/* Public routes — no setup check needed */}
-        <Route path="/setup" element={<SetupPage />} />
+        <Route path="/setup" element={<SetupRoute />} />
         <Route path="/portal/:token" element={<PortalPage />} />
         <Route path="/csat/:token" element={<CsatPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />

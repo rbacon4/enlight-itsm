@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import bcrypt from 'bcrypt';
 import { db } from '../db/client.js';
 import { users, organizations } from '../db/schema.js';
@@ -12,13 +13,31 @@ import { z } from 'zod';
 
 const router = Router();
 
+// Brute-force protection for credential endpoints. Counts only FAILED attempts
+// (skipSuccessfulRequests), so a legitimate user logging in repeatedly is never
+// blocked, while an attacker spraying passwords is throttled per IP. Replies with
+// HTTP 429 + Retry-After (standardHeaders). This is the API-layer enforcement the
+// frontend cannot bypass.
+const credentialLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // failed attempts per IP per window
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Too many login attempts. Please try again later.',
+    statusCode: 429,
+  },
+});
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
 
 // POST /auth/login  — local email/password login (used before SAML is configured)
-router.post('/login', async (req, res, next) => {
+router.post('/login', credentialLimiter, async (req, res, next) => {
   try {
     const body = loginSchema.parse(req.body);
 
@@ -82,15 +101,19 @@ const setupSchema = z.object({
   password: z.string().min(8),
 });
 
-router.post('/setup', async (req, res, next) => {
+router.post('/setup', credentialLimiter, async (req, res, next) => {
   try {
-    const body = setupSchema.parse(req.body);
-
-    const existing = await db.select().from(organizations).limit(1);
+    // Authorization guard FIRST — before any field validation. Once an org
+    // exists the instance is initialised, so reject immediately with 403. This
+    // closes the re-initialisation path and avoids leaking the setup flow
+    // (field-validation errors) to unauthenticated callers.
+    const existing = await db.select({ id: organizations.id }).from(organizations).limit(1);
     if (existing.length > 0) {
-      next(Errors.conflict('Organization already set up'));
+      next(Errors.conflict('Setup already complete'));
       return;
     }
+
+    const body = setupSchema.parse(req.body);
 
     const [org] = await db
       .insert(organizations)
