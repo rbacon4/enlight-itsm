@@ -26,7 +26,7 @@ export async function handleRipplingSyncJob(data: { orgId: string }): Promise<vo
   let totalSynced = 0;
 
   do {
-    const page = await client.listWorkers({ cursor, limit: 100 });
+    const page = await client.listWorkers({ ...(cursor !== undefined ? { cursor } : {}), limit: 100 });
     for (const w of page.data) {
       const displayName = `${w.name.firstName} ${w.name.lastName}`.trim();
       await db

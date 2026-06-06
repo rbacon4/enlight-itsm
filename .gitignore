@@ -6,3 +6,8 @@ dist/
 .DS_Store
 coverage/
 .turbo/
+# drizzle-kit emits these alongside schema.ts during `generate` — compiled JS artifacts, not source
+packages/api/src/db/schema.js
+packages/api/src/db/schema.js.map
+packages/api/src/db/schema.d.ts
+packages/api/src/db/schema.d.ts.map

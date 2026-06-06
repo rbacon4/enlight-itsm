@@ -169,6 +169,13 @@
       "when": 1780716899253,
       "tag": "0023_strange_shooting_star",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1780746050479,
+      "tag": "0024_integrations_request_refs",
+      "breakpoints": true
     }
   ]
 }
