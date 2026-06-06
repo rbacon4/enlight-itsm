@@ -61,6 +61,11 @@ RUN pnpm install --frozen-lockfile --prod
 
 # ── runner: minimal runtime image ─────────────────────────────────────────────
 FROM base AS runner
+# Bake the git commit SHA so the version page can compare against upstream.
+# Pass --build-arg APP_COMMIT=$(git rev-parse HEAD) (or set APP_COMMIT in the
+# environment before running docker compose up --build) to enable update detection.
+ARG APP_COMMIT=""
+ENV APP_COMMIT=${APP_COMMIT}
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV MCP_PORT=3001

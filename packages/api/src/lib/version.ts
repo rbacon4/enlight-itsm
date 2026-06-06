@@ -236,9 +236,13 @@ export async function applyUpdate(): Promise<string | null> {
   const logFile = path.join(tmpdir(), `enlight-update-${Date.now()}.log`);
   updateLogFile = logFile;
 
+  // Capture the commit SHA after the pull so it gets baked into the new image
+  // via the APP_COMMIT build arg. The export is evaluated by the shell after
+  // the pull completes, so it always reflects the freshly pulled HEAD.
   const cmd = [
     `git -C ${dir}/enlight-itsm pull`,
-    `docker compose --env-file ${dir}/.env -f ${dir}/docker-compose.yml up -d --build`,
+    `export APP_COMMIT=$(git -C ${dir}/enlight-itsm rev-parse HEAD 2>/dev/null || echo "")`,
+    `APP_COMMIT=$APP_COMMIT docker compose --env-file ${dir}/.env -f ${dir}/docker-compose.yml up -d --build`,
   ].join(' && ');
 
   logger.info('Applying update', { dir, logFile });
