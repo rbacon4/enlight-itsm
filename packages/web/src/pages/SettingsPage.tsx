@@ -2335,11 +2335,6 @@ function UpdatesTab() {
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 20px', fontSize: 13, marginBottom: 20 }}>
-            <div style={{ color: 'var(--color-text-muted)' }}>Installed version</div>
-            <div>
-              <strong>v{data.current.version}</strong>
-              {data.current.commit && <span style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace', marginLeft: 8 }}>({data.current.commit})</span>}
-            </div>
             {data.latestCommit && (<>
               <div style={{ color: 'var(--color-text-muted)' }}>Latest on {data.branch}</div>
               <div>
