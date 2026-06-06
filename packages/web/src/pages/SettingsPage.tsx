@@ -2261,7 +2261,7 @@ function UpdatesTab() {
     } catch (err) { setSourceError(err instanceof Error ? err.message : 'Failed to save'); }
   };
 
-  const updateCmd = `cd /opt/enlight\ngit -C enlight-itsm pull\ndocker compose --env-file /opt/enlight/.env up -d --build`;
+  const updateCmd = `cd /opt/enlight\nsudo git -C enlight-itsm pull\nsudo docker compose --env-file /opt/enlight/.env up -d --build`;
   const updateAvailable = data?.updateAvailable;
 
   return (
