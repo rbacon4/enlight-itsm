@@ -746,6 +746,65 @@ export const oncallSchedules = pgTable(
   ],
 );
 
+// ── External integrations ─────────────────────────────────────────────────────
+// One row per provider per project. `config` holds encrypted credentials and
+// mapping settings (field maps, project/board IDs, status maps).
+
+export const integrations = pgTable(
+  'integrations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(), // 'jira' | 'asana' | 'linear'
+    enabled: boolean('enabled').notNull().default(true),
+    // Encrypted credentials + mapping config (see lib/integrations/types.ts)
+    config: jsonb('config').notNull().default('{}'),
+    // HMAC secret used to verify inbound webhooks from this provider.
+    webhookSecret: text('webhook_secret'),
+    // Provider-side webhook ID (for de-registering on delete).
+    externalWebhookId: text('external_webhook_id'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('integrations_project_idx').on(t.projectId),
+    uniqueIndex('integrations_project_provider_idx').on(t.projectId, t.provider),
+  ],
+);
+
+// Maps each Enlight request to its counterpart ticket(s) in external systems.
+export const requestExternalRefs = pgTable(
+  'request_external_refs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => requests.id, { onDelete: 'cascade' }),
+    integrationId: uuid('integration_id')
+      .notNull()
+      .references(() => integrations.id, { onDelete: 'cascade' }),
+    externalId: text('external_id').notNull(), // Jira issue key / Asana GID / Linear ID
+    externalUrl: text('external_url'),
+    syncedAt: timestamp('synced_at').notNull().defaultNow(),
+    syncError: text('sync_error'),
+  },
+  (t) => [
+    uniqueIndex('request_external_refs_request_integration_idx').on(
+      t.requestId,
+      t.integrationId,
+    ),
+    index('request_external_refs_integration_external_idx').on(
+      t.integrationId,
+      t.externalId,
+    ),
+  ],
+);
+
 // ── Relations ─────────────────────────────────────────────────────────────────
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
@@ -794,6 +853,18 @@ export const requestsRelations = relations(requests, ({ one, many }) => ({
   comments: many(comments),
   attachments: many(attachments),
   aiActions: many(aiActions),
+  externalRefs: many(requestExternalRefs),
+}));
+
+export const integrationsRelations = relations(integrations, ({ one, many }) => ({
+  project: one(projects, { fields: [integrations.projectId], references: [projects.id] }),
+  organization: one(organizations, { fields: [integrations.orgId], references: [organizations.id] }),
+  externalRefs: many(requestExternalRefs),
+}));
+
+export const requestExternalRefsRelations = relations(requestExternalRefs, ({ one }) => ({
+  request: one(requests, { fields: [requestExternalRefs.requestId], references: [requests.id] }),
+  integration: one(integrations, { fields: [requestExternalRefs.integrationId], references: [integrations.id] }),
 }));
 
 export const knowledgeSourcesRelations = relations(

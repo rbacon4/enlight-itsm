@@ -113,20 +113,21 @@ function minutesToHM(mins: number): string {
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
-type TabId = 'general' | 'ai' | 'members' | 'roles' | 'requests' | 'knowledge' | 'sla' | 'scheduling' | 'automations' | 'slack' | 'templates';
+type TabId = 'general' | 'ai' | 'members' | 'roles' | 'requests' | 'knowledge' | 'sla' | 'scheduling' | 'automations' | 'slack' | 'templates' | 'integrations';
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'general',     label: 'General' },
-  { id: 'ai',          label: 'AI' },
-  { id: 'members',     label: 'Members' },
-  { id: 'roles',       label: 'Roles' },
-  { id: 'requests',    label: 'Requests' },
-  { id: 'knowledge',   label: 'Knowledge' },
-  { id: 'templates',   label: 'Templates' },
-  { id: 'sla',         label: 'SLA' },
-  { id: 'scheduling',  label: 'Scheduling' },
-  { id: 'automations', label: 'Automations' },
-  { id: 'slack',       label: 'Slack' },
+  { id: 'general',      label: 'General' },
+  { id: 'ai',           label: 'AI' },
+  { id: 'members',      label: 'Members' },
+  { id: 'roles',        label: 'Roles' },
+  { id: 'requests',     label: 'Requests' },
+  { id: 'knowledge',    label: 'Knowledge' },
+  { id: 'templates',    label: 'Templates' },
+  { id: 'sla',          label: 'SLA' },
+  { id: 'scheduling',   label: 'Scheduling' },
+  { id: 'automations',  label: 'Automations' },
+  { id: 'slack',        label: 'Slack' },
+  { id: 'integrations', label: 'Integrations' },
 ];
 
 function TabBar({ active, onChange }: { active: TabId; onChange: (id: TabId) => void }) {
@@ -1689,8 +1690,358 @@ export function ProjectSettingsPage() {
       {tab === 'templates'  && <TemplatesSection project={project} />}
       {tab === 'sla'      && <SLASection project={project} />}
       {tab === 'scheduling' && <SchedulingSection project={project} />}
-      {tab === 'automations' && <AutomationsSection project={project} />}
-      {tab === 'slack'    && <SlackActionsSection project={project} />}
+      {tab === 'automations'  && <AutomationsSection project={project} />}
+      {tab === 'slack'        && <SlackActionsSection project={project} />}
+      {tab === 'integrations' && <IntegrationsTab projectId={project.id} />}
+    </div>
+  );
+}
+
+// ── Integrations tab ──────────────────────────────────────────────────────────
+
+type IntegrationProvider = 'jira' | 'asana' | 'linear';
+
+interface Integration {
+  id: string;
+  provider: IntegrationProvider;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  webhookSecret?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const PROVIDER_LABELS: Record<IntegrationProvider, string> = {
+  jira: 'Jira / Jira Service Management',
+  asana: 'Asana',
+  linear: 'Linear',
+};
+
+const PROVIDER_COLORS: Record<IntegrationProvider, string> = {
+  jira: '#0052CC',
+  asana: '#F06A6A',
+  linear: '#5E6AD2',
+};
+
+function IntegrationForm({
+  projectId,
+  provider,
+  existing,
+  onSaved,
+  onCancel,
+}: {
+  projectId: string;
+  provider: IntegrationProvider;
+  existing?: Integration;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const isJira = provider === 'jira';
+  const isAsana = provider === 'asana';
+  const isLinear = provider === 'linear';
+
+  const initialCfg = (existing?.config ?? {}) as Record<string, string>;
+  const [cfg, setCfg] = useState<Record<string, string>>({
+    ...(isJira ? { baseUrl: '', email: '', apiToken: '', projectKey: '', issueType: 'Task' } : {}),
+    ...(isAsana ? { accessToken: '', workspaceGid: '', projectGid: '' } : {}),
+    ...(isLinear ? { apiKey: '', teamId: '' } : {}),
+    ...initialCfg,
+  });
+  const [enabled, setEnabled] = useState(existing?.enabled ?? true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null);
+  const [saveError, setSaveError] = useState('');
+  const [webhookInfo, setWebhookInfo] = useState<string | null>(null);
+
+  const update = (field: string, value: string) => setCfg((p) => ({ ...p, [field]: value }));
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '8px 10px', borderRadius: 6,
+    border: '1px solid var(--color-border)', background: 'var(--color-input)',
+    color: 'var(--color-text)', fontSize: 13, boxSizing: 'border-box',
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setSaveError('');
+    try {
+      let result: Integration;
+      if (existing) {
+        result = await api.put<Integration>(
+          `/projects/${projectId}/integrations/${existing.id}`,
+          { enabled, config: cfg },
+        );
+      } else {
+        result = await api.post<Integration>(
+          `/projects/${projectId}/integrations`,
+          { provider, enabled, config: cfg },
+        );
+        if (result.webhookSecret) {
+          const origin = window.location.origin;
+          setWebhookInfo(
+            `Webhook URL: ${origin}/webhooks/${provider}/${result.id}?secret=${result.webhookSecret}`,
+          );
+          return; // show webhook info before closing
+        }
+      }
+      onSaved();
+    } catch (e: unknown) {
+      setSaveError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    if (!existing) return;
+    setTesting(true); setTestResult(null);
+    try {
+      const r = await api.post<{ success: boolean; error?: string }>(
+        `/projects/${projectId}/integrations/${existing.id}/test`, {},
+      );
+      setTestResult(r);
+    } catch (e: unknown) {
+      setTestResult({ success: false, error: (e as Error).message });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  if (webhookInfo) {
+    return (
+      <div style={{ padding: 20, background: 'var(--color-surface-raised)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+        <div style={{ fontWeight: 600, marginBottom: 8 }}>🔗 Register this webhook URL in {PROVIDER_LABELS[provider]}:</div>
+        <code style={{ display: 'block', fontSize: 12, padding: 12, background: 'var(--color-surface)', borderRadius: 6, wordBreak: 'break-all', marginBottom: 16 }}>
+          {webhookInfo}
+        </code>
+        <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+          {isJira && 'Add this URL in Jira Settings → System → WebHooks. Select issue created/updated events.'}
+          {isAsana && 'Asana will send a GET handshake to this URL when you register it as a webhook.'}
+          {isLinear && 'Add this URL in Linear Settings → API → Webhooks. Select Issue events.'}
+        </div>
+        <button className="btn-primary" onClick={onSaved}>Done</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          Enable sync
+        </label>
+      </div>
+
+      {isJira && <>
+        <Field label="Jira base URL" hint="e.g. https://yourcompany.atlassian.net">
+          <input style={inputStyle} value={cfg['baseUrl'] ?? ''} onChange={(e) => update('baseUrl', e.target.value)} placeholder="https://yourcompany.atlassian.net" />
+        </Field>
+        <Field label="Account email">
+          <input style={inputStyle} value={cfg['email'] ?? ''} onChange={(e) => update('email', e.target.value)} placeholder="you@yourcompany.com" />
+        </Field>
+        <Field label="API token" hint="Create at https://id.atlassian.com/manage-profile/security/api-tokens">
+          <input style={inputStyle} type="password" value={cfg['apiToken'] ?? ''} onChange={(e) => update('apiToken', e.target.value)} placeholder={existing ? '••••••••' : ''} />
+        </Field>
+        <Field label="Project key" hint="e.g. IT or SUPPORT">
+          <input style={inputStyle} value={cfg['projectKey'] ?? ''} onChange={(e) => update('projectKey', e.target.value)} placeholder="IT" />
+        </Field>
+        <Field label="Issue type" hint="e.g. Task, Story, Service Request">
+          <input style={inputStyle} value={cfg['issueType'] ?? ''} onChange={(e) => update('issueType', e.target.value)} placeholder="Task" />
+        </Field>
+      </>}
+
+      {isAsana && <>
+        <Field label="Personal access token" hint="Create at https://app.asana.com/0/my-apps">
+          <input style={inputStyle} type="password" value={cfg['accessToken'] ?? ''} onChange={(e) => update('accessToken', e.target.value)} placeholder={existing ? '••••••••' : ''} />
+        </Field>
+        <Field label="Workspace GID" hint="Your Asana workspace ID (from the URL or API)">
+          <input style={inputStyle} value={cfg['workspaceGid'] ?? ''} onChange={(e) => update('workspaceGid', e.target.value)} />
+        </Field>
+        <Field label="Project GID" hint="The Asana project to create tasks in">
+          <input style={inputStyle} value={cfg['projectGid'] ?? ''} onChange={(e) => update('projectGid', e.target.value)} />
+        </Field>
+      </>}
+
+      {isLinear && <>
+        <Field label="API key" hint="Create at https://linear.app/settings/api">
+          <input style={inputStyle} type="password" value={cfg['apiKey'] ?? ''} onChange={(e) => update('apiKey', e.target.value)} placeholder={existing ? '••••••••' : ''} />
+        </Field>
+        <Field label="Team ID" hint="Your Linear team ID (from Linear Settings → API)">
+          <input style={inputStyle} value={cfg['teamId'] ?? ''} onChange={(e) => update('teamId', e.target.value)} />
+        </Field>
+      </>}
+
+      {saveError && <div style={{ fontSize: 13, color: 'var(--color-danger)', marginBottom: 12 }}>{saveError}</div>}
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : existing ? 'Update' : 'Connect'}</button>
+        {existing && (
+          <button className="btn-secondary" onClick={handleTest} disabled={testing}>
+            {testing ? 'Testing…' : 'Test connection'}
+          </button>
+        )}
+        <button className="btn-ghost" onClick={onCancel}>Cancel</button>
+        {testResult && (
+          <span style={{ fontSize: 13, color: testResult.success ? 'var(--color-success)' : 'var(--color-danger)' }}>
+            {testResult.success ? '✓ Connected' : `✗ ${testResult.error}`}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IntegrationsTab({ projectId }: { projectId: string }) {
+  const qc = useQueryClient();
+  const [adding, setAdding] = useState<IntegrationProvider | null>(null);
+  const [editing, setEditing] = useState<Integration | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<Record<string, { synced: number; created: number; errors: number }>>({});
+
+  const { data: integrationsList = [], isLoading } = useQuery<Integration[]>({
+    queryKey: ['integrations', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/integrations`),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.delete(`/projects/${projectId}/integrations/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['integrations', projectId] }),
+  });
+
+  const handleSync = async (id: string) => {
+    setSyncingId(id);
+    try {
+      const r = await api.post<{ synced: number; created: number; errors: number }>(
+        `/projects/${projectId}/integrations/${id}/sync`, {},
+      );
+      setSyncResult((p) => ({ ...p, [id]: r }));
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const configured = new Set(integrationsList.map((i) => i.provider));
+  const available: IntegrationProvider[] = (['jira', 'asana', 'linear'] as IntegrationProvider[])
+    .filter((p) => !configured.has(p));
+
+  const handleSaved = () => {
+    setAdding(null);
+    setEditing(null);
+    qc.invalidateQueries({ queryKey: ['integrations', projectId] });
+  };
+
+  if (isLoading) return <div style={{ color: 'var(--color-text-muted)', padding: 16 }}>Loading…</div>;
+
+  return (
+    <div>
+      <Section
+        title="External ticket sync"
+        hint="Two-way sync keeps tickets in Enlight and your external tools (Jira, Asana, Linear) in sync — changes in either direction are reflected in both."
+      >
+        {integrationsList.length === 0 && !adding && (
+          <div style={{ color: 'var(--color-text-muted)', fontSize: 13, marginBottom: 16 }}>
+            No integrations configured. Add one below.
+          </div>
+        )}
+
+        {integrationsList.map((integration) => (
+          <div key={integration.id} style={{
+            padding: '14px 16px',
+            border: '1px solid var(--color-border)',
+            borderRadius: 8,
+            marginBottom: 12,
+            background: 'var(--color-surface-raised)',
+          }}>
+            {editing?.id === integration.id ? (
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 14 }}>Edit {PROVIDER_LABELS[integration.provider]}</div>
+                <IntegrationForm
+                  projectId={projectId}
+                  provider={integration.provider}
+                  existing={integration}
+                  onSaved={handleSaved}
+                  onCancel={() => setEditing(null)}
+                />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{
+                  display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+                  background: integration.enabled ? 'var(--color-success)' : 'var(--color-text-muted)',
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>
+                  <span style={{ color: PROVIDER_COLORS[integration.provider] }}>●</span>{' '}
+                  {PROVIDER_LABELS[integration.provider]}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                  {integration.enabled ? 'Active' : 'Disabled'}
+                </span>
+                {syncResult[integration.id] && (
+                  <span style={{ fontSize: 12, color: 'var(--color-success)' }}>
+                    ✓ {syncResult[integration.id]!.synced} synced
+                  </span>
+                )}
+                <button
+                  className="btn-secondary"
+                  style={{ fontSize: 12, padding: '4px 10px' }}
+                  onClick={() => handleSync(integration.id)}
+                  disabled={syncingId === integration.id}
+                >
+                  {syncingId === integration.id ? 'Syncing…' : 'Sync now'}
+                </button>
+                <button className="btn-secondary" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setEditing(integration)}>Edit</button>
+                <button
+                  className="btn-ghost"
+                  style={{ fontSize: 12, padding: '4px 8px', color: 'var(--color-danger)' }}
+                  onClick={() => { if (confirm(`Remove ${PROVIDER_LABELS[integration.provider]} integration?`)) deleteMut.mutate(integration.id); }}
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {adding && (
+          <div style={{ padding: '16px', border: '1px solid var(--color-primary)', borderRadius: 8, marginBottom: 12 }}>
+            <div style={{ fontWeight: 600, marginBottom: 14 }}>Connect {PROVIDER_LABELS[adding]}</div>
+            <IntegrationForm
+              projectId={projectId}
+              provider={adding}
+              onSaved={handleSaved}
+              onCancel={() => setAdding(null)}
+            />
+          </div>
+        )}
+
+        {!adding && available.length > 0 && (
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Add integration:</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {available.map((p) => (
+                <button
+                  key={p}
+                  className="btn-secondary"
+                  onClick={() => setAdding(p)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+                >
+                  <span style={{ color: PROVIDER_COLORS[p], fontSize: 16 }}>●</span>
+                  {PROVIDER_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </Section>
+
+      <Section title="How two-way sync works" hint="">
+        <div style={{ fontSize: 13, color: 'var(--color-text)', lineHeight: 1.7 }}>
+          <p style={{ marginTop: 0 }}><strong>Outbound (Enlight → external):</strong> When a ticket is created, updated, or commented on in Enlight, the change is automatically pushed to the connected tool.</p>
+          <p><strong>Inbound (external → Enlight):</strong> Register the webhook URL shown after connecting to receive status updates back from Jira/Asana/Linear in real time.</p>
+          <p style={{ marginBottom: 0 }}><strong>Manual sync:</strong> Use "Sync now" to push all existing tickets to the external tool and reconcile any that are out of date.</p>
+        </div>
+      </Section>
     </div>
   );
 }

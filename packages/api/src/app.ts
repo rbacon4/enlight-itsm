@@ -23,6 +23,7 @@ import { portalRouter } from './routes/portal.js';
 import { totpRouter } from './routes/totp.js';
 import { templatesRouter } from './routes/templates.js';
 import { csatRouter } from './routes/csat.js';
+import { integrationsRouter, webhookReceiverRouter } from './routes/integrations.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { mountSlackHttp } from './slack/index.js';
 import { isLicensingEnabled } from './lib/license.js';
@@ -112,14 +113,18 @@ api.use('/projects', projectsRouter);
 api.use('/projects/:projectId/requests', requestsRouter);
 api.use('/projects/:projectId/knowledge', knowledgeRouter);
 api.use('/projects/:projectId/automations', automationsRouter);
-api.use('/projects/:projectId/oncall',     oncallRouter);
-api.use('/projects/:projectId/templates', templatesRouter);
+api.use('/projects/:projectId/oncall',        oncallRouter);
+api.use('/projects/:projectId/templates',    templatesRouter);
+api.use('/projects/:projectId/integrations', integrationsRouter);
 
 app.use(isProduction ? '/api' : '/', api);
 
 // Public unauthenticated routes
 app.use('/portal', portalRouter);
 app.use('/csat',   csatRouter);
+
+// Inbound webhook receivers (no auth — signature-verified per-request)
+app.use('/webhooks', webhookReceiverRouter);
 
 // ── Static SPA (production single-container) ─────────────────────────────────
 if (isProduction) {
@@ -130,7 +135,7 @@ if (isProduction) {
   // SPA fallback: serve index.html for client-side routes (anything that isn't an
   // API/slack/health path). Returns next() for those so they 404 as JSON.
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/slack') || req.path === '/health') {
+    if (req.path.startsWith('/api') || req.path.startsWith('/slack') || req.path.startsWith('/webhooks') || req.path === '/health') {
       next();
       return;
     }

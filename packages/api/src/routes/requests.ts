@@ -16,6 +16,11 @@ import { makeSlackClient } from '../slack/client.js';
 import { decryptOrgSettings } from '../lib/secretCrypto.js';
 import { getStorageBackend, StorageNotConfiguredError } from '../lib/storage.js';
 import { logger } from '../lib/logger.js';
+import {
+  syncRequestCreated,
+  syncRequestUpdated,
+  syncCommentAdded,
+} from '../lib/integrations/sync.js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import type { OrganizationSettings, StorageProvider } from '@enlight/shared';
@@ -89,6 +94,9 @@ router.post('/', requireProjectPermission('requests.create'), async (req, res, n
 
     // Queue AI agent triage
     await agentQueue.add('triage', { requestId: request.id, projectId, requesterRole: user.globalRole });
+
+    // Fire-and-forget outbound sync to external integrations (Jira/Asana/Linear)
+    void syncRequestCreated(request.id);
 
     res.status(201).json(request);
   } catch (err) {
@@ -196,6 +204,15 @@ router.patch('/:requestId', requireProjectPermission('requests.edit'), async (re
     }
 
     void enqueueAutomationEvent('request_updated', updated.id);
+
+    // Outbound sync: push field/status changes to external integrations
+    const syncChanges: Record<string, string> = {};
+    if (typeof updates['title'] === 'string') syncChanges['title'] = updates['title'];
+    if (typeof updates['description'] === 'string') syncChanges['description'] = updates['description'];
+    if (typeof updates['priority'] === 'string') syncChanges['priority'] = updates['priority'];
+    if (typeof updates['status'] === 'string') syncChanges['status'] = updates['status'];
+    if (Object.keys(syncChanges).length > 0) void syncRequestUpdated(updated.id, syncChanges);
+
     deliverWebhooks(req.user!.orgId, 'request.updated', {
       id: updated.id, ticketNumber: updated.ticketNumber, title: updated.title,
       status: updated.status, priority: updated.priority, changedFields: Object.keys(updates),
@@ -243,6 +260,9 @@ router.post('/:requestId/comments', requireProjectPermission('requests.comment')
 
     // Fire comment_added automations (e.g. notify on customer reply).
     void enqueueAutomationEvent('comment_added', requestId, comment.id);
+
+    // Outbound sync: push public comments to external integrations
+    if (!body.isInternal) void syncCommentAdded(requestId, comment.id);
     deliverWebhooks(req.user!.orgId, 'comment.added', {
       requestId, commentId: comment.id, isInternal: body.isInternal,
       authorId: user.id, body: body.body.slice(0, 500),
