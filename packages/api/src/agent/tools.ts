@@ -7,6 +7,9 @@ import {
   knowledgeSources,
   users,
   projects,
+  ripplingWorkers,
+  jumpcloudUsers,
+  oktaUsers,
 } from '../db/schema.js';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { RequestPriority, RequestStatus, OrganizationSettings } from '@enlight/shared';
@@ -17,6 +20,9 @@ import { createOffboardingEvent, validateOffboardingInput } from '../lib/offboar
 import { offboardingQueue } from '../queues/index.js';
 import { computeOnCall } from '../lib/oncall.js';
 import { oncallSchedules } from '../db/schema.js';
+import { makeRipplingClient } from '../lib/rippling.js';
+import { makeJumpCloudClient } from '../lib/jumpcloud.js';
+import { makeOktaClient } from '../lib/okta.js';
 
 export const agentToolDefinitions: Anthropic.Tool[] = [
   {
@@ -124,6 +130,33 @@ export const agentToolDefinitions: Anthropic.Tool[] = [
         topK: { type: 'number', default: 5, description: 'Number of results to return' },
       },
       required: ['query', 'projectId'],
+    },
+  },
+  {
+    name: 'rippling_lookup_worker',
+    description: 'Look up an employee in Rippling IT by work email. Returns name, department, title, employment status, and Rippling ID.',
+    input_schema: {
+      type: 'object',
+      properties: { email: { type: 'string', description: 'Work email address to look up' } },
+      required: ['email'],
+    },
+  },
+  {
+    name: 'jumpcloud_lookup_user',
+    description: 'Look up an employee in JumpCloud by work email. Returns username, department, title, suspended status, and JumpCloud ID.',
+    input_schema: {
+      type: 'object',
+      properties: { email: { type: 'string', description: 'Work email address to look up' } },
+      required: ['email'],
+    },
+  },
+  {
+    name: 'okta_lookup_user',
+    description: 'Look up an employee in Okta by email or login. Returns profile, status, department, and Okta ID.',
+    input_schema: {
+      type: 'object',
+      properties: { email: { type: 'string', description: 'Email address or Okta login to look up' } },
+      required: ['email'],
     },
   },
 ];
@@ -390,6 +423,82 @@ export async function executeTool(
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         return { error: `offboard_user failed: ${msg}` };
+      }
+    }
+
+    case 'rippling_lookup_worker': {
+      const email = (input['email'] as string | undefined) ?? '';
+      if (!email) return { error: 'email is required' };
+      try {
+        // Check local DB first
+        const [proj] = await db.select({ orgId: projects.orgId }).from(projects).where(eq(projects.id, input.projectId ?? '')).limit(1);
+        const orgId = proj?.orgId;
+        if (orgId) {
+          const [row] = await db.select().from(ripplingWorkers)
+            .where(and(eq(ripplingWorkers.orgId, orgId), eq(ripplingWorkers.workEmail, email.toLowerCase())))
+            .limit(1);
+          if (row) {
+            return { found: true, ripplingId: row.ripplingId, displayName: row.displayName, workEmail: row.workEmail, department: row.department, title: row.title, employmentStatus: row.employmentStatus };
+          }
+        }
+        // Fall through to live API
+        const client = makeRipplingClient(orgSettings);
+        const page = await client.listWorkers();
+        const found = page.data.find(w => w.workEmail.toLowerCase() === email.toLowerCase());
+        if (!found) return { found: false, email };
+        return { found: true, ripplingId: found.id, displayName: `${found.name.firstName} ${found.name.lastName}`, workEmail: found.workEmail, department: found.department, title: found.title, employmentStatus: found.employmentStatus };
+      } catch (err) {
+        logger.warn('rippling_lookup_worker failed', { email, err });
+        return { found: false, email, error: err instanceof Error ? err.message : String(err) };
+      }
+    }
+
+    case 'jumpcloud_lookup_user': {
+      const email = (input['email'] as string | undefined) ?? '';
+      if (!email) return { error: 'email is required' };
+      try {
+        const [proj] = await db.select({ orgId: projects.orgId }).from(projects).where(eq(projects.id, input.projectId ?? '')).limit(1);
+        const orgId = proj?.orgId;
+        if (orgId) {
+          const [row] = await db.select().from(jumpcloudUsers)
+            .where(and(eq(jumpcloudUsers.orgId, orgId), eq(jumpcloudUsers.workEmail, email.toLowerCase())))
+            .limit(1);
+          if (row) {
+            return { found: true, jumpcloudId: row.jumpcloudId, username: row.username, displayName: row.displayName, workEmail: row.workEmail, department: row.department, title: row.title, suspended: row.suspended, employmentStatus: row.employmentStatus };
+          }
+        }
+        const client = makeJumpCloudClient(orgSettings, orgId);
+        const page = await client.listUsers();
+        const found = page.results.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (!found) return { found: false, email };
+        return { found: true, jumpcloudId: found.id, username: found.username, workEmail: found.email, department: found.department, title: found.jobTitle, suspended: found.suspended };
+      } catch (err) {
+        logger.warn('jumpcloud_lookup_user failed', { email, err });
+        return { found: false, email, error: err instanceof Error ? err.message : String(err) };
+      }
+    }
+
+    case 'okta_lookup_user': {
+      const email = (input['email'] as string | undefined) ?? '';
+      if (!email) return { error: 'email is required' };
+      try {
+        const [proj] = await db.select({ orgId: projects.orgId }).from(projects).where(eq(projects.id, input.projectId ?? '')).limit(1);
+        const orgId = proj?.orgId;
+        if (orgId) {
+          const [row] = await db.select().from(oktaUsers)
+            .where(and(eq(oktaUsers.orgId, orgId), sql`(${oktaUsers.email} = ${email.toLowerCase()} OR ${oktaUsers.login} = ${email.toLowerCase()})`))
+            .limit(1);
+          if (row) {
+            return { found: true, oktaId: row.oktaId, login: row.login, email: row.email, displayName: row.displayName, department: row.department, title: row.title, status: row.status };
+          }
+        }
+        const client = makeOktaClient(orgSettings, orgId);
+        const user = await client.getUser(email);
+        if (!user) return { found: false, email };
+        return { found: true, oktaId: user.id, login: user.profile.login, email: user.profile.email, displayName: user.profile.displayName, department: user.profile.department, title: user.profile.title, status: user.status };
+      } catch (err) {
+        logger.warn('okta_lookup_user failed', { email, err });
+        return { found: false, email, error: err instanceof Error ? err.message : String(err) };
       }
     }
 

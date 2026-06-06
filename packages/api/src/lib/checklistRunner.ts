@@ -50,6 +50,24 @@ export function renderTemplate(str: string, vars: Record<string, string>): strin
   );
 }
 
+/**
+ * Resolve {{secrets.X}} and {{vars.X}} references from the centralized stores,
+ * then apply the fixed template vars. Pass orgId to enable secret/variable
+ * resolution; omit for backward-compatible plain-var-only rendering.
+ */
+export async function renderTemplateWithStores(
+  str: string,
+  vars: Record<string, string>,
+  orgId?: string,
+): Promise<string> {
+  let result = str;
+  if (orgId) {
+    const { resolveTemplateVars } = await import('./variables.js');
+    result = await resolveTemplateVars(orgId, result);
+  }
+  return renderTemplate(result, vars);
+}
+
 /** Block obviously-internal/loopback/link-local targets (defense-in-depth SSRF guard). */
 export function isBlockedUrl(rawUrl: string): string | null {
   let u: URL;

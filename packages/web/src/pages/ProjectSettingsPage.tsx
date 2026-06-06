@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Copy, Check, Trash2, Plus } from 'lucide-react';
+import { Copy, Check, Trash2, Plus, CheckCircle, AlertTriangle, Globe, Lock } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
@@ -62,7 +62,7 @@ function SaveBtn({ saving, saved, onClick, error }: { saving: boolean; saved: bo
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
       <button className="btn-primary" onClick={onClick} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-      {saved && !saving && <span style={{ fontSize: 13, color: 'var(--color-success)' }}>✓ Saved</span>}
+      {saved && !saving && <span style={{ fontSize: 13, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={13} /> Saved</span>}
       {error && <span style={{ fontSize: 13, color: 'var(--color-danger)' }}>{error}</span>}
     </div>
   );
@@ -614,7 +614,7 @@ function MembersTab({ project, allUsers }: { project: Project; allUsers: User[] 
               />
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>
-                  {opt === 'open' ? '🌐 Open' : '🔒 Restricted'}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>{opt === 'open' ? <Globe size={14} /> : <Lock size={14} />}{opt === 'open' ? 'Open' : 'Restricted'}</span>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 3 }}>
                   {opt === 'open'
@@ -683,7 +683,7 @@ function MembersTab({ project, allUsers }: { project: Project; allUsers: User[] 
           ) : groupsError ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontSize: 13, color: 'var(--color-danger)' }}>
-                ⚠️ {(groupsError as Error).message || 'Could not load Slack user groups.'}
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><AlertTriangle size={13} />{(groupsError as Error).message || 'Could not load Slack user groups.'}</span>
               </div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                 After adding <code style={{ background: 'var(--color-surface)', padding: '1px 4px', borderRadius: 3 }}>usergroups:read</code> in
@@ -721,7 +721,7 @@ function MembersTab({ project, allUsers }: { project: Project; allUsers: User[] 
             {saveMut.isPending ? 'Saving…' : 'Save'}
           </button>
           {accessSaved && !saveMut.isPending && (
-            <span style={{ fontSize: 13, color: 'var(--color-success)' }}>✓ Saved</span>
+            <span style={{ fontSize: 13, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={13} /> Saved</span>
           )}
           {accessError && (
             <span style={{ fontSize: 13, color: 'var(--color-danger)' }}>{accessError}</span>
@@ -739,7 +739,7 @@ function MembersTab({ project, allUsers }: { project: Project; allUsers: User[] 
               </button>
               {syncMut.isSuccess && (
                 <span style={{ fontSize: 13, color: 'var(--color-success)' }}>
-                  ✓ +{syncMut.data.added} added, {syncMut.data.skipped} unchanged
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={13} /> +{syncMut.data.added} added, {syncMut.data.skipped} unchanged</span>
                 </span>
               )}
               {syncMut.isError && (

@@ -270,3 +270,10 @@ flag, and the web tab all key off the same flag.
 8. ~~**Onboarding wizard**~~ ✅ — `GET /auth/setup-status` probe + `SetupPage.tsx` 3-step wizard + `SetupGuard` redirect in `App.tsx`
 9. ~~**Email notifications**~~ ✅ — `lib/notifier.ts` — ticket created, agent reply, requester reply, resolved, assigned; fire-and-forget via `emailSender.ts`
 10. ~~**SLA policy UI**~~ ✅ — SLA time table + **SLA Breach Alerts** section (channel checkboxes + Slack channel ID) in `ProjectSettingsPage.tsx`
+11. ~~**Rippling IT integration**~~ ✅ — `lib/rippling.ts` — directory sync, offboarding (deactivate worker, revoke apps, unenroll devices), AI agent lookup tool, Settings UI tab, MCP tools
+12. ~~**JumpCloud integration**~~ ✅ — `lib/jumpcloud.ts` — directory sync, offboarding (suspend user, remove group memberships, unbind systems), dual auth (API key + service account OAuth 2.0 client credentials), AI agent lookup tool, Settings UI tab, MCP tools
+13. ~~**Okta integration**~~ ✅ — `lib/okta.ts` — directory sync, offboarding (deactivate user, revoke sessions, remove group memberships), dual auth (SSWS API token + OAuth 2.0 service app with private key JWT assertion using Web Crypto API), link-header cursor pagination, AI agent lookup tool, Settings UI tab, MCP tools
+14. ~~**Centralized secrets manager**~~ ✅ — `routes/secrets.ts`, `lib/secrets.ts` — named encrypted secrets, `{{secrets.X}}` template resolution in automations/checklists
+15. ~~**Global variables manager**~~ ✅ — `routes/variables.ts`, `lib/variables.ts` — named key-value store, `{{vars.X}}` template resolution
+16. ~~**Update page improvements**~~ ✅ — live update status/progress polling, configurable update source (GitHub/GitLab/Bitbucket), `GET /org/version` diagnostic endpoint
+17. ~~**Emoji to Lucide icons**~~ ✅ — replaced emoji used as UI elements across all web pages with appropriate Lucide React icons

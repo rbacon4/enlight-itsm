@@ -11,7 +11,7 @@ import { fetchIdpMetadata } from '../lib/samlMetadata.js';
 import { encryptOrgSettings, decryptOrgSettings } from '../lib/secretCrypto.js';
 import { getStorageBackend } from '../lib/storage.js';
 import { verifyLicense, clearLicenseCache, isLicensingEnabled } from '../lib/license.js';
-import { getUpdateInfo, applyUpdate } from '../lib/version.js';
+import { getUpdateInfo, getUpdateStatus, currentVersion, applyUpdate } from '../lib/version.js';
 import type { OrganizationSettings, StorageProvider } from '@enlight/shared';
 
 const router = Router();
@@ -62,6 +62,15 @@ router.get('/', async (req, res, next) => {
         const p = settings[provider] as Record<string, unknown> | undefined;
         if (p) settings[provider] = { ...p, secretAccessKey: '', secretAccessKeyConfigured: Boolean(p['secretAccessKey']) };
       }
+      // Redact Rippling API token.
+      const rip = settings['rippling'] as Record<string, unknown> | undefined;
+      if (rip) settings['rippling'] = { ...rip, apiToken: '', apiTokenConfigured: Boolean(rip['apiToken']) };
+      // Redact JumpCloud credentials.
+      const jc = settings['jumpcloud'] as Record<string, unknown> | undefined;
+      if (jc) settings['jumpcloud'] = { ...jc, apiKey: '', apiKeyConfigured: Boolean(jc['apiKey']), clientSecret: '', clientSecretConfigured: Boolean(jc['clientSecret']), cachedAccessToken: undefined };
+      // Redact Okta credentials.
+      const okta = settings['okta'] as Record<string, unknown> | undefined;
+      if (okta) settings['okta'] = { ...okta, apiToken: '', apiTokenConfigured: Boolean(okta['apiToken']), privateKeyJwk: '', privateKeyJwkConfigured: Boolean(okta['privateKeyJwk']), cachedAccessToken: undefined };
     } else {
       // Strip every secret-bearing field for non-managers; keep branding + safe fields.
       const SECRET_KEYS = ['anthropicApiKey', 'voyageApiKey', 'openAiApiKey', 'slackBotToken', 'slackSigningSecret', 'slackAppToken'];
@@ -70,6 +79,9 @@ router.get('/', async (req, res, next) => {
       delete safe['gcp'];          // service-account key
       delete safe['aws'];          // S3 secret
       delete safe['digitalocean']; // Spaces secret
+      delete safe['rippling'];     // Rippling API token
+      delete safe['jumpcloud'];    // JumpCloud credentials
+      delete safe['okta'];         // Okta credentials
       // `offboarding` is non-secret config (domain/OUs/channel) — kept so the
       // Offboarding page works for operators who lack org.manage_settings. Strip
       // the nested M365 client secret though.
@@ -671,11 +683,52 @@ router.delete('/license', requirePermission('org.manage_settings'), async (req, 
 
 // ── Version / updates ─────────────────────────────────────────────────────────
 
+// GET /org/version — running version info (no auth — diagnostic, non-secret).
+router.get('/version', async (_req, res) => {
+  const { version, commit } = currentVersion();
+  res.json({ version, commit, builtAt: process.env['BUILD_AT'] ?? null });
+});
+
 // GET /org/updates — current version + whether a newer one is available upstream.
 router.get('/updates', requirePermission('org.manage_settings'), async (req, res, next) => {
   try {
     const force = req.query['force'] === 'true' || req.query['force'] === '1';
-    res.json(await getUpdateInfo(force));
+    const [org] = await db.select({ settings: organizations.settings }).from(organizations).where(eq(organizations.id, req.user!.orgId)).limit(1);
+    const s = (org?.settings ?? {}) as import('@enlight/shared').OrganizationSettings;
+    const orgSource = s.updateRepoUrl
+      ? { provider: (s.updateProvider ?? 'github') as 'github' | 'gitlab' | 'bitbucket', repoUrl: s.updateRepoUrl, branch: s.updateBranch ?? 'main' }
+      : undefined;
+    res.json(await getUpdateInfo(force, orgSource));
+  } catch (err) { next(err); }
+});
+
+// GET /org/update/status — live status of the last apply-update operation.
+router.get('/update/status', requirePermission('org.manage_settings'), (_req, res) => {
+  res.json(getUpdateStatus());
+});
+
+// POST /org/update/apply — trigger the update (detached process).
+router.post('/update/apply', requirePermission('org.manage_settings'), async (_req, res, next) => {
+  try {
+    const err = await applyUpdate();
+    if (err) { res.status(400).json({ error: 'UPDATE_FAILED', message: err }); return; }
+    res.json({ ok: true, message: 'Update started. Poll /org/update/status for progress.' });
+  } catch (err) { next(err); }
+});
+
+// POST /org/update/source — save org-level update source config.
+router.post('/update/source', requirePermission('org.manage_settings'), async (req, res, next) => {
+  try {
+    const body = z.object({
+      repoUrl: z.string().url().max(300),
+      provider: z.enum(['github', 'gitlab', 'bitbucket']),
+      branch: z.string().max(100).default('main'),
+    }).parse(req.body);
+    const [existing] = await db.select({ settings: organizations.settings }).from(organizations).where(eq(organizations.id, req.user!.orgId)).limit(1);
+    const current = (existing?.settings ?? {}) as Record<string, unknown>;
+    const merged = { ...current, updateRepoUrl: body.repoUrl, updateProvider: body.provider, updateBranch: body.branch };
+    await db.update(organizations).set({ settings: merged, updatedAt: new Date() }).where(eq(organizations.id, req.user!.orgId));
+    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 

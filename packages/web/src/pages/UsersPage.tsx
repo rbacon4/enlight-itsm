@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.js';
 import type { GlobalRole, Role } from '@enlight/shared';
@@ -400,7 +401,7 @@ export function UsersPage() {
                   color: 'var(--color-success)', background: '#22c55e20',
                   padding: '2px 8px', borderRadius: 100,
                 }}>
-                  ✓ Slack
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><CheckCircle size={12} /> Slack</span>
                 </span>
               ) : (
                 <span style={{

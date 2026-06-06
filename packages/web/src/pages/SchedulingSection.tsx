@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle, Pencil, Trash2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import type {
   Project, SupportHours, SupportHoursDay, Weekday, OnCallSchedule, ProjectMemberDetail,
@@ -114,7 +115,7 @@ function SupportHoursCard({ project }: { project: Project }) {
         <button className="btn-primary" onClick={() => save.mutate(hours)} disabled={save.isPending}>
           {save.isPending ? 'Saving…' : 'Save'}
         </button>
-        {saved && <span style={{ fontSize: 13, color: 'var(--color-success)' }}>✓ Saved</span>}
+        {saved && <span style={{ fontSize: 13, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={13} /> Saved</span>}
         {error && <span style={{ fontSize: 13, color: 'var(--color-danger)' }}>{error}</span>}
       </div>
     </div>
@@ -294,8 +295,8 @@ function OnCallCard({ project, members }: { project: Project; members: ProjectMe
                     </div>
                   )}
                 </div>
-                <button onClick={() => setModal({ open: true, schedule: s })} style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer', color: 'var(--color-text-muted)' }}>✏️</button>
-                <button onClick={() => { if (confirm(`Delete schedule "${s.name}"?`)) del.mutate(s.id); }} style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer', color: 'var(--color-danger)' }}>🗑️</button>
+                <button onClick={() => setModal({ open: true, schedule: s })} style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
+                <button onClick={() => { if (confirm(`Delete schedule "${s.name}"?`)) del.mutate(s.id); }} style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer', color: 'var(--color-danger)', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
               </div>
             </div>
           );

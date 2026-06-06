@@ -1,16 +1,26 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { FolderOpen, FileText, FileIcon, AlertTriangle, Trash2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import type { Project, KnowledgeSource, KnowledgeSourceType, KnowledgeFileType } from '@enlight/shared';
 
 // ── Metadata ──────────────────────────────────────────────────────────────────
 
 const SOURCE_META: Record<KnowledgeSourceType, { icon: string; label: string }> = {
-  gdrive:     { icon: '🗂️',  label: 'Google Drive' },
-  confluence: { icon: '📄',  label: 'Confluence' },
-  notion:     { icon: '◻️',  label: 'Notion' },
-  file:       { icon: '📎',  label: 'File' },
+  gdrive:     { icon: 'gdrive',     label: 'Google Drive' },
+  confluence: { icon: 'confluence', label: 'Confluence' },
+  notion:     { icon: 'notion',     label: 'Notion' },
+  file:       { icon: 'file',       label: 'File' },
 };
+
+function SourceIcon({ icon, size = 18 }: { icon: string; size?: number }) {
+  switch (icon) {
+    case 'gdrive': return <FolderOpen size={size} />;
+    case 'confluence': return <FileText size={size} />;
+    case 'notion': return <FileIcon size={size} />;
+    default: return <FileIcon size={size} />;
+  }
+}
 
 const STATUS_STYLE: Record<string, { color: string; bg: string; label: string }> = {
   pending: { color: 'var(--color-text-muted)', bg: '#ffffff0d', label: 'Pending' },
@@ -356,8 +366,8 @@ function FileFields({ form, setForm }: { form: FormState; setForm: React.Dispatc
             border: '1px solid var(--color-border)',
             borderRadius: 8,
           }}>
-            <span style={{ fontSize: 26, flexShrink: 0 }}>
-              {form.fFileType === 'pdf' ? '📄' : form.fFileType === 'docx' ? '📝' : '📃'}
+            <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+              <FileText size={26} />
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 500, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -538,7 +548,7 @@ function AddSourceModal({
                     transition: 'all 0.1s',
                   }}
                 >
-                  <span style={{ fontSize: 18 }}>{m.icon}</span>
+                  <SourceIcon icon={m.icon} size={18} />
                   {m.label}
                 </button>
               ))}
@@ -673,7 +683,7 @@ function SourceCard({ source, projectId }: { source: KnowledgeSource; projectId:
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 20,
         }}>
-          {meta?.icon}
+          {meta && <SourceIcon icon={meta.icon} size={20} />}
         </div>
 
         {/* Info */}
@@ -724,7 +734,7 @@ function SourceCard({ source, projectId }: { source: KnowledgeSource; projectId:
               }}
               title="Show error"
             >
-              ⚠
+              <AlertTriangle size={14} />
             </button>
           )}
           <button
@@ -733,11 +743,11 @@ function SourceCard({ source, projectId }: { source: KnowledgeSource; projectId:
             style={{
               background: 'none', border: '1px solid var(--color-border)',
               borderRadius: 6, color: 'var(--color-text-muted)',
-              padding: '6px 10px', fontSize: 14, cursor: 'pointer',
+              padding: '6px 8px', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center',
             }}
             title="Delete source"
           >
-            🗑
+            <Trash2 size={14} />
           </button>
         </div>
       </div>

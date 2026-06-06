@@ -110,6 +110,31 @@ function mapSecrets(settings: OrganizationSettings, fn: (v: string) => string): 
       out['offboarding'] = o;
     }
   }
+  // Nested secrets: rippling.apiToken
+  const rippling = out['rippling'];
+  if (rippling && typeof rippling === 'object') {
+    const r = { ...(rippling as Record<string, unknown>) };
+    if (typeof r['apiToken'] === 'string' && r['apiToken']) r['apiToken'] = fn(r['apiToken'] as string);
+    out['rippling'] = r;
+  }
+  // Nested secrets: jumpcloud.apiKey, jumpcloud.clientSecret, jumpcloud.cachedAccessToken
+  const jumpcloud = out['jumpcloud'];
+  if (jumpcloud && typeof jumpcloud === 'object') {
+    const j = { ...(jumpcloud as Record<string, unknown>) };
+    for (const k of ['apiKey', 'clientSecret', 'cachedAccessToken'] as const) {
+      if (typeof j[k] === 'string' && j[k]) j[k] = fn(j[k] as string);
+    }
+    out['jumpcloud'] = j;
+  }
+  // Nested secrets: okta.apiToken, okta.privateKeyJwk, okta.cachedAccessToken
+  const okta = out['okta'];
+  if (okta && typeof okta === 'object') {
+    const o = { ...(okta as Record<string, unknown>) };
+    for (const k of ['apiToken', 'privateKeyJwk', 'cachedAccessToken'] as const) {
+      if (typeof o[k] === 'string' && o[k]) o[k] = fn(o[k] as string);
+    }
+    out['okta'] = o;
+  }
   return out as OrganizationSettings;
 }
 

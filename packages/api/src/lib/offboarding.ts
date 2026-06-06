@@ -25,6 +25,9 @@ import type {
 import { decryptOrgSettings, decryptSecret } from './secretCrypto.js';
 import { makeGoogleWorkspaceService, resolveOffboardingConfig } from './googleWorkspace.js';
 import { makeMicrosoft365Service, resolveMicrosoft365Config } from './microsoft365.js';
+import { makeRipplingClient } from './rippling.js';
+import { makeJumpCloudClient } from './jumpcloud.js';
+import { makeOktaClient } from './okta.js';
 import { runAutomatedStep, buildVars } from './checklistRunner.js';
 import { createRequest } from './createRequest.js';
 import { makeSlackClient } from '../slack/client.js';
@@ -151,6 +154,74 @@ export async function runOffboarding(eventId: string): Promise<void> {
       }
     } catch (err) {
       actions.push({ action: 'Microsoft 365 offboarding', success: false, details: '', error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // ── Provider: Rippling IT (runs when offboardingEnabled) ──
+  if (orgSettings.rippling?.offboardingEnabled) {
+    try {
+      const rippling = makeRipplingClient(orgSettings);
+      const unenroll = orgSettings.rippling.deviceUnenrollEnabled ?? false;
+      const result = await rippling.offboardByEmail(target, unenroll);
+      if (result.error && !result.deactivated) {
+        actions.push({ action: 'Rippling IT offboarding', success: false, details: '', error: result.error });
+      } else {
+        const details = [
+          result.mock ? '[MOCK] ' : '',
+          result.deactivated ? 'Worker deactivated.' : 'Deactivation failed.',
+          result.appsRevoked ? ' App access revoked.' : '',
+          result.devicesUnenrolled > 0 ? ` ${result.devicesUnenrolled} device(s) unenrolled.` : '',
+        ].join('').trim();
+        actions.push({ action: 'Rippling IT offboarding', success: result.deactivated, details, ...(result.error ? { error: result.error } : {}) });
+      }
+    } catch (err) {
+      actions.push({ action: 'Rippling IT offboarding', success: false, details: '', error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // ── Provider: JumpCloud (runs when offboardingEnabled) ──
+  if (orgSettings.jumpcloud?.offboardingEnabled) {
+    try {
+      const jc = makeJumpCloudClient(orgSettings, event.orgId);
+      const unbind = orgSettings.jumpcloud.systemUnbindEnabled ?? false;
+      const result = await jc.offboardByEmail(target, unbind);
+      if (result.error && !result.suspended) {
+        actions.push({ action: 'JumpCloud offboarding', success: false, details: '', error: result.error });
+      } else {
+        const details = [
+          result.mock ? '[MOCK] ' : '',
+          result.suspended ? 'User suspended.' : 'Suspension failed.',
+          result.groupsRemoved > 0 ? ` ${result.groupsRemoved} group(s) removed.` : '',
+          result.systemsUnbound > 0 ? ` ${result.systemsUnbound} system(s) unbound.` : '',
+        ].join('').trim();
+        actions.push({ action: 'JumpCloud offboarding', success: result.suspended, details, ...(result.error ? { error: result.error } : {}) });
+      }
+    } catch (err) {
+      actions.push({ action: 'JumpCloud offboarding', success: false, details: '', error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // ── Provider: Okta (runs when offboardingEnabled) ──
+  if (orgSettings.okta?.offboardingEnabled) {
+    try {
+      const okta = makeOktaClient(orgSettings, event.orgId);
+      const revokeSessions = orgSettings.okta.revokeSessionsEnabled ?? true;
+      const removeGroups = orgSettings.okta.removeGroupsEnabled ?? true;
+      const result = await okta.offboardByEmail(target, revokeSessions, removeGroups);
+      if (result.error && !result.deactivated) {
+        actions.push({ action: 'Okta offboarding', success: false, details: '', error: result.error });
+      } else {
+        const details = [
+          result.mock ? '[MOCK] ' : '',
+          result.deactivated ? 'User deactivated.' : 'Deactivation failed.',
+          result.sessionRevoked ? ' Sessions revoked.' : '',
+          result.groupsRemoved > 0 ? ` ${result.groupsRemoved} group(s) removed.` : '',
+          `Previous status: ${result.previousStatus}.`,
+        ].join('').trim();
+        actions.push({ action: 'Okta offboarding', success: result.deactivated, details, ...(result.error ? { error: result.error } : {}) });
+      }
+    } catch (err) {
+      actions.push({ action: 'Okta offboarding', success: false, details: '', error: err instanceof Error ? err.message : String(err) });
     }
   }
 

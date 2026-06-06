@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle, XCircle } from 'lucide-react';
 import { api } from '../lib/api.js';
 import type { OffboardingEvent, OffboardingProfileLookup, OrgDetails } from '@enlight/shared';
 
@@ -178,7 +179,7 @@ function HistoryRow({ event }: { event: OffboardingEvent }) {
             <ul style={{ margin: '0 0 12px', paddingLeft: 18, fontSize: 13 }}>
               {(event.actions ?? []).map((a, i) => (
                 <li key={i} style={{ color: a.success ? 'var(--color-text)' : 'var(--color-danger)' }}>
-                  {a.success ? '✓' : '✗'} {a.action}{a.success ? `: ${a.details}` : ` — ${a.error}`}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{a.success ? <CheckCircle size={13} color="var(--color-success)" /> : <XCircle size={13} />} {a.action}{a.success ? `: ${a.details}` : ` — ${a.error}`}</span>
                 </li>
               ))}
               {(event.actions ?? []).length === 0 && <li style={{ color: 'var(--color-text-muted)' }}>No actions recorded.</li>}

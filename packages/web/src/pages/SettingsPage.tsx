@@ -7,14 +7,15 @@ import { RoleManager } from '../components/RoleManager.js';
 import { ChecklistBuilder } from '../components/ChecklistBuilder.js';
 import {
   SlidersHorizontal, Sparkles, Palette, Mail, Hash, Cloud, UserMinus, ShieldCheck, KeyRound, Lock,
-  Webhook, BadgeCheck, Copy, RefreshCw, Trash2, Plus, Download,
+  Webhook, BadgeCheck, Copy, RefreshCw, Trash2, Plus, Download, Users, Database, Variable,
+  CheckCircle, XCircle, AlertTriangle, Eye, EyeOff, Loader2,
   type LucideIcon,
 } from 'lucide-react';
 import type { OrgDetails, MCPApiKeyPublic, MCPApiKeyCreated, Project, EmbeddingProvider, AIProvider, SlackStatus, GlobalRole, SsoConnectionInfo, SamlMetadataValidation } from '@enlight/shared';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-type Tab = 'general' | 'ai-keys' | 'branding' | 'email' | 'slack' | 'cloud' | 'offboarding' | 'roles' | 'mcp-keys' | 'security' | 'webhooks' | 'license' | 'updates';
+type Tab = 'general' | 'ai-keys' | 'branding' | 'email' | 'slack' | 'cloud' | 'offboarding' | 'rippling' | 'jumpcloud' | 'okta' | 'secrets' | 'variables' | 'roles' | 'mcp-keys' | 'security' | 'webhooks' | 'license' | 'updates';
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'general',     label: 'General',      icon: SlidersHorizontal },
@@ -24,6 +25,11 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'slack',       label: 'Slack',        icon: Hash },
   { id: 'cloud',       label: 'Cloud',        icon: Cloud },
   { id: 'offboarding', label: 'Offboarding',  icon: UserMinus },
+  { id: 'rippling',    label: 'Rippling',     icon: Users },
+  { id: 'jumpcloud',   label: 'JumpCloud',    icon: Users },
+  { id: 'okta',        label: 'Okta',         icon: Users },
+  { id: 'secrets',     label: 'Secrets',      icon: Lock },
+  { id: 'variables',   label: 'Variables',    icon: Variable },
   { id: 'roles',       label: 'Roles',        icon: ShieldCheck },
   { id: 'mcp-keys',    label: 'MCP Keys',     icon: KeyRound },
   { id: 'security',    label: 'Security',     icon: Lock },
@@ -59,7 +65,7 @@ function SaveBar({ saving, saved, onSave, error }: { saving: boolean; saved: boo
       <button className="btn-primary" onClick={onSave} disabled={saving}>
         {saving ? 'Saving…' : 'Save Changes'}
       </button>
-      {saved && !saving && <span style={{ fontSize: 13, color: 'var(--color-success)' }}>✓ Saved</span>}
+      {saved && !saving && <span style={{ fontSize: 13, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={13} /> Saved</span>}
       {error && <span style={{ fontSize: 13, color: 'var(--color-danger)' }}>{error}</span>}
     </div>
   );
@@ -110,7 +116,7 @@ function CopyField({ value, mono = true }: { value: string; mono?: boolean }) {
           whiteSpace: 'nowrap',
         }}
       >
-        {copied ? '✓ Copied' : 'Copy'}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>{copied ? <><CheckCircle size={12} /> Copied</> : <><Copy size={12} /> Copy</>}</span>
       </button>
     </div>
   );
@@ -836,7 +842,7 @@ function EmailTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
               color: 'var(--color-text-muted)',
               marginBottom: 8,
             }}>
-              ⚠ SMTP password / API key must be set via the <code style={{ color: 'var(--color-primary)' }}>SMTP_PASSWORD</code> environment variable on the API server — not stored here.
+              <AlertTriangle size={13} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: 4 }} />SMTP password / API key must be set via the <code style={{ color: 'var(--color-primary)' }}>SMTP_PASSWORD</code> environment variable on the API server — not stored here.
             </div>
           </>
         )}
@@ -851,7 +857,7 @@ function EmailTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
             color: 'var(--color-text-muted)',
             marginBottom: 8,
           }}>
-            ⚠ The {form.provider === 'sendgrid' ? 'SendGrid' : 'Mailgun'} API key must be set via the{' '}
+            <AlertTriangle size={13} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: 4 }} />The {form.provider === 'sendgrid' ? 'SendGrid' : 'Mailgun'} API key must be set via the{' '}
             <code style={{ color: 'var(--color-primary)' }}>
               {form.provider === 'sendgrid' ? 'SENDGRID_API_KEY' : 'MAILGUN_API_KEY'}
             </code>{' '}
@@ -926,7 +932,7 @@ function MCPKeysTab() {
           marginBottom: 24,
         }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-success)', marginBottom: 8 }}>
-            ✓ API key created — copy it now, it won't be shown again
+            <CheckCircle size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: 4 }} />API key created — copy it now, it won't be shown again
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <code style={{
@@ -941,8 +947,8 @@ function MCPKeysTab() {
             }}>
               {createdKey}
             </code>
-            <button className="btn-ghost" onClick={copyKey} style={{ flexShrink: 0 }}>
-              {copied ? '✓ Copied' : 'Copy'}
+            <button className="btn-ghost" onClick={copyKey} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+              {copied ? <><CheckCircle size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
             </button>
             <button className="btn-ghost" onClick={() => setCreatedKey(null)} style={{ flexShrink: 0 }}>
               Dismiss
@@ -1279,7 +1285,7 @@ function SlackTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
             border: `1px solid ${testResult.ok ? 'var(--color-success)' : 'var(--color-danger)'}`,
             color: testResult.ok ? 'var(--color-success)' : 'var(--color-danger)',
           }}>
-            {testResult.ok ? '✓ ' : '✗ '}{testResult.message}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{testResult.ok ? <CheckCircle size={14} /> : <XCircle size={14} />}{testResult.message}</span>
           </div>
         )}
       </Section>
@@ -1430,7 +1436,7 @@ function SlackTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
         <button className="btn-ghost" onClick={() => saveMut.mutate()} disabled={isBusy}>
           Save only
         </button>
-        {saved && !isBusy && <span style={{ fontSize: 13, color: 'var(--color-success)' }}>✓ Saved</span>}
+        {saved && !isBusy && <span style={{ fontSize: 13, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={13} /> Saved</span>}
         {error && <span style={{ fontSize: 13, color: 'var(--color-danger)' }}>{error}</span>}
       </div>
     </div>
@@ -1605,7 +1611,7 @@ function SecurityTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void })
             {validation.valid ? (
               <>
                 <div style={{ fontWeight: 600, color: 'var(--color-success)', marginBottom: 10 }}>
-                  ✓ Valid Identity Provider metadata
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Valid Identity Provider metadata</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 14px', color: 'var(--color-text)' }}>
                   {validation.entityId && (
@@ -1745,7 +1751,7 @@ function SecurityTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void })
             marginTop: 4,
           }}>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-              ✓ New SCIM bearer token — copy it now, it won't be shown again.
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> New SCIM bearer token — copy it now, it won't be shown again.</span>
             </div>
             <CopyField value={newToken} />
           </div>
@@ -1979,7 +1985,7 @@ function OffboardingTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void
           background: 'var(--color-surface-2)', border: '1px solid var(--color-border)',
           borderRadius: 8, padding: 14, fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 20,
         }}>
-          Credentials live in the <strong>Cloud</strong> tab ({credsConfigured ? 'configured ✓' : 'not configured — runs in mock mode'}).
+          Credentials live in the <strong>Cloud</strong> tab ({credsConfigured ? 'configured (ready)' : 'not configured — runs in mock mode'}).
           In mock mode the whole flow runs without a live Google Workspace, so you can enable and test offboarding here.
         </div>
         <Field label="Enabled" hint="When on, admins can offboard from the web portal, the Slack App Home, and the AI agent. (Also toggleable from the Slack tab.)">
@@ -2186,114 +2192,176 @@ function relTime(iso: string): string {
   return `${Math.floor(d / 86400)}d ago`;
 }
 
+interface UpdateStatus { state: 'idle' | 'running' | 'done' | 'error'; startedAt?: string; completedAt?: string; log: string[] }
+interface VersionInfo { version: string; commit: string | null; builtAt?: string | null }
+
 function UpdatesTab() {
   const qc = useQueryClient();
+  const { data: org } = useQuery({ queryKey: ['org'], queryFn: () => api.get<OrgDetails>('/org') });
   const { data, isLoading, isFetching } = useQuery<UpdateInfo>({
     queryKey: ['updates'],
     queryFn: () => api.get('/org/updates'),
     staleTime: 60 * 60 * 1000,
   });
+  const { data: versionInfo } = useQuery<VersionInfo>({
+    queryKey: ['version'],
+    queryFn: () => api.get('/org/version'),
+    staleTime: Infinity,
+  });
+  const [applyStatus, setApplyStatus] = useState<UpdateStatus | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [sourceForm, setSourceForm] = useState({ provider: 'github', repoUrl: '', branch: 'main' });
+  const [sourceSaved, setSourceSaved] = useState(false);
+  const [sourceError, setSourceError] = useState('');
+
+  useEffect(() => {
+    const s = org?.settings as Record<string, unknown> | undefined;
+    if (s?.updateRepoUrl) {
+      setSourceForm({ provider: String(s.updateProvider ?? 'github'), repoUrl: String(s.updateRepoUrl), branch: String(s.updateBranch ?? 'main') });
+    }
+  }, [org]);
+
+  // Poll for update status while running
+  useEffect(() => {
+    if (!applying) return;
+    const poll = setInterval(async () => {
+      try {
+        const status = await api.get<UpdateStatus>('/org/update/status');
+        setApplyStatus(status);
+        if (status.state === 'done' || status.state === 'error') {
+          setApplying(false);
+          clearInterval(poll);
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+    return () => clearInterval(poll);
+  }, [applying]);
 
   const recheck = () => qc.fetchQuery({ queryKey: ['updates'], queryFn: () => api.get<UpdateInfo>('/org/updates?force=true') })
     .then((d) => qc.setQueryData(['updates'], d));
 
-  const [applying, setApplying] = useState(false);
-  const [applyResult, setApplyResult] = useState<{ ok: boolean; message: string } | null>(null);
-
   const handleApplyUpdate = async () => {
-    if (!confirm('Apply update now? The app will pull the latest code and restart (a few minutes of downtime).')) return;
+    if (!confirm('Apply update? This will pull the latest code and restart the container.')) return;
     setApplying(true);
-    setApplyResult(null);
+    setApplyStatus({ state: 'running', log: ['Starting update...'] });
     try {
-      const r = await api.post<{ started: boolean; message: string }>('/org/update/apply', {});
-      setApplyResult({ ok: true, message: r.message });
-    } catch (e: unknown) {
-      const msg = (e as { message?: string }).message ?? 'Update failed';
-      setApplyResult({ ok: false, message: msg });
-    } finally {
+      await api.post('/org/update/apply', {});
+    } catch (err) {
+      setApplyStatus({ state: 'error', log: [err instanceof Error ? err.message : 'Failed to start update'] });
       setApplying(false);
     }
   };
 
-  const updateCmd = `cd /opt/enlight
-sudo git -C enlight-itsm pull
-sudo docker compose --env-file /opt/enlight/.env up -d --build`;
+  const handleSaveSource = async () => {
+    setSourceError('');
+    try {
+      await api.post('/org/update/source', sourceForm);
+      setSourceSaved(true);
+      qc.invalidateQueries({ queryKey: ['org'] });
+      qc.invalidateQueries({ queryKey: ['updates'] });
+      setTimeout(() => setSourceSaved(false), 3000);
+    } catch (err) { setSourceError(err instanceof Error ? err.message : 'Failed to save'); }
+  };
 
-  const status = data?.updateAvailable;
+  const updateCmd = `cd /opt/enlight\ngit -C enlight-itsm pull\ndocker compose --env-file /opt/enlight/.env up -d --build`;
+  const updateAvailable = data?.updateAvailable;
 
   return (
+    <>
     <Section title="Software Updates">
       {isLoading && <div style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>Checking…</div>}
 
+      {/* Running version from /org/version */}
+      {versionInfo && (
+        <div style={{ fontSize: 13, marginBottom: 12, padding: '10px 14px', background: 'var(--color-surface-2)', borderRadius: 6, border: '1px solid var(--color-border)' }}>
+          Running: <strong>v{versionInfo.version}</strong>
+          {versionInfo.commit && <code style={{ marginLeft: 8, fontSize: 12, color: 'var(--color-text-muted)' }}>({versionInfo.commit.slice(0, 7)})</code>}
+          {versionInfo.builtAt && <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--color-text-muted)' }}>built {relTime(versionInfo.builtAt)}</span>}
+        </div>
+      )}
+
       {data && (
         <>
-          {/* Status banner */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 8, marginBottom: 20,
-            background: status === true ? '#fef3c7' : status === false ? '#d1fae5' : 'var(--color-surface-2)',
-            border: `1px solid ${status === true ? '#fcd34d' : status === false ? '#6ee7b7' : 'var(--color-border)'}`,
+            background: updateAvailable === true ? '#fef3c7' : updateAvailable === false ? '#d1fae5' : 'var(--color-surface-2)',
+            border: `1px solid ${updateAvailable === true ? '#fcd34d' : updateAvailable === false ? '#6ee7b7' : 'var(--color-border)'}`,
           }}>
-            <Download size={18} color={status === true ? '#92400e' : status === false ? '#065f46' : 'var(--color-text-muted)'} />
+            <Download size={18} color={updateAvailable === true ? '#92400e' : updateAvailable === false ? '#065f46' : 'var(--color-text-muted)'} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: status === true ? '#92400e' : status === false ? '#065f46' : 'var(--color-text)' }}>
-                {status === true ? 'An update is available' : status === false ? 'You\'re up to date' : 'Update status'}
+              <div style={{ fontWeight: 600, fontSize: 13, color: updateAvailable === true ? '#92400e' : updateAvailable === false ? '#065f46' : 'var(--color-text)' }}>
+                {updateAvailable === true ? 'An update is available' : updateAvailable === false ? "You're up to date" : 'Update status unknown'}
               </div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>
-                {status === null && 'Showing the latest upstream commit (build commit unknown, so we can\'t compare automatically).'}
-                {status === false && 'Your deployment matches the latest commit on the tracked branch.'}
-                {status === true && 'A newer commit is available upstream — see the update steps below.'}
+                {updateAvailable === null && "Build commit unknown — can't compare automatically."}
+                {updateAvailable === false && 'Your deployment matches the latest commit on the tracked branch.'}
+                {updateAvailable === true && 'A newer commit is available upstream.'}
               </div>
             </div>
-            <button onClick={recheck} disabled={isFetching}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6,
-                border: '1px solid var(--color-border)', background: 'var(--color-surface)', cursor: 'pointer', fontSize: 12 }}>
-              <RefreshCw size={13} style={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }} />
-              Check now
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button onClick={recheck} disabled={isFetching}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6,
+                  border: '1px solid var(--color-border)', background: 'var(--color-surface)', cursor: 'pointer', fontSize: 12 }}>
+                <RefreshCw size={13} style={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }} />
+                Check now
+              </button>
+              {updateAvailable === true && (
+                <button onClick={handleApplyUpdate} disabled={applying}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6,
+                    background: 'var(--color-primary)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                  {applying ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={13} />}
+                  Apply Update
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Version table */}
+          {/* Live progress panel */}
+          {applyStatus && (
+            <div style={{ marginBottom: 20, padding: '14px 16px', borderRadius: 8,
+              background: applyStatus.state === 'error' ? '#fef2f2' : applyStatus.state === 'done' ? '#f0fdf4' : 'var(--color-surface-2)',
+              border: `1px solid ${applyStatus.state === 'error' ? '#fecaca' : applyStatus.state === 'done' ? '#bbf7d0' : 'var(--color-border)'}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                {applyStatus.state === 'running' && <Loader2 size={15} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-primary)' }} />}
+                {applyStatus.state === 'done' && <CheckCircle size={15} color="#16a34a" />}
+                {applyStatus.state === 'error' && <XCircle size={15} color="var(--color-danger)" />}
+                <span style={{ fontSize: 13, fontWeight: 600 }}>
+                  {applyStatus.state === 'running' ? 'Updating…' : applyStatus.state === 'done' ? 'Update complete' : 'Update failed'}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, fontFamily: 'monospace', background: 'rgba(0,0,0,0.05)', borderRadius: 4, padding: '8px 10px', maxHeight: 200, overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                {applyStatus.log.length > 0 ? applyStatus.log.join('\n') : 'Waiting for output…'}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 20px', fontSize: 13, marginBottom: 20 }}>
             <div style={{ color: 'var(--color-text-muted)' }}>Installed version</div>
             <div>
               <strong>v{data.current.version}</strong>
               {data.current.commit && <span style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace', marginLeft: 8 }}>({data.current.commit})</span>}
             </div>
-
-            {data.latestCommit && (
-              <>
-                <div style={{ color: 'var(--color-text-muted)' }}>Latest on {data.branch}</div>
-                <div>
-                  <a href={data.latestCommit.url} target="_blank" rel="noreferrer" style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>
-                    {data.latestCommit.shortSha}
-                  </a>
-                  <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>{relTime(data.latestCommit.date)}</span>
-                  <div style={{ color: 'var(--color-text-muted)', fontSize: 12, marginTop: 2 }}>{data.latestCommit.message}</div>
-                </div>
-              </>
-            )}
-
-            {data.latestRelease && (
-              <>
-                <div style={{ color: 'var(--color-text-muted)' }}>Latest release</div>
-                <div>
-                  <a href={data.latestRelease.url} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>
-                    {data.latestRelease.name}
-                  </a>
-                  <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>{relTime(data.latestRelease.publishedAt)}</span>
-                </div>
-              </>
-            )}
-
+            {data.latestCommit && (<>
+              <div style={{ color: 'var(--color-text-muted)' }}>Latest on {data.branch}</div>
+              <div>
+                <a href={data.latestCommit.url} target="_blank" rel="noreferrer" style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{data.latestCommit.shortSha}</a>
+                <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>{relTime(data.latestCommit.date)}</span>
+                <div style={{ color: 'var(--color-text-muted)', fontSize: 12, marginTop: 2 }}>{data.latestCommit.message}</div>
+              </div>
+            </>)}
+            {data.latestRelease && (<>
+              <div style={{ color: 'var(--color-text-muted)' }}>Latest release</div>
+              <div>
+                <a href={data.latestRelease.url} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>{data.latestRelease.name}</a>
+                <span style={{ color: 'var(--color-text-muted)', marginLeft: 8 }}>{relTime(data.latestRelease.publishedAt)}</span>
+              </div>
+            </>)}
             <div style={{ color: 'var(--color-text-muted)' }}>Repository</div>
-            <div><a href={`https://github.com/${data.repo}`} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>{data.repo}</a></div>
+            <div><a href={data.repo} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>{data.repo}</a></div>
           </div>
 
-          {data.error && (
-            <div style={{ fontSize: 12, color: 'var(--color-danger)', marginBottom: 16 }}>
-              Couldn't reach GitHub: {data.error}
-            </div>
-          )}
+          {data.error && <div style={{ fontSize: 12, color: 'var(--color-danger)', marginBottom: 16 }}>Could not reach update source: {data.error}</div>}
 
           {/* Apply update */}
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Apply update</div>
@@ -2315,32 +2383,42 @@ sudo docker compose --env-file /opt/enlight/.env up -d --build`;
                 disabled={applying}
                 style={{ display: 'flex', alignItems: 'center', gap: 6 }}
               >
-                <Download size={14} />
+                {applying ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
                 {applying ? 'Starting update…' : 'Apply Update'}
               </button>
-
-              {applyResult && (
-                <span style={{ fontSize: 13, color: applyResult.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                  {applyResult.ok ? '✓ ' : '✗ '}{applyResult.message}
-                </span>
-              )}
             </div>
 
-            {applyResult?.ok && (
-              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 12, marginBottom: 0 }}>
-                The rebuild is running in the background. This page will become temporarily unavailable
-                (502) while Docker restarts the container — refresh after a few minutes.
-              </p>
-            )}
-
-            {applyResult && !applyResult.ok && (
-              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 10, marginBottom: 0 }}>
-                One-time fix: add the Docker socket mount to your deploy
-                (<code>docker-compose.yml</code> → app service → volumes:
-                <code> - /var/run/docker.sock:/var/run/docker.sock</code>), then run{' '}
-                <code>sudo docker compose up -d</code> on the server to pick it up. After that
-                the button will work for all future updates.
-              </p>
+            {/* Live progress panel */}
+            {applyStatus && (
+              <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 6,
+                background: applyStatus.state === 'error' ? '#fef2f2' : applyStatus.state === 'done' ? '#f0fdf4' : 'var(--color-surface-2)',
+                border: `1px solid ${applyStatus.state === 'error' ? '#fecaca' : applyStatus.state === 'done' ? '#bbf7d0' : 'var(--color-border)'}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  {applyStatus.state === 'running' && <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-primary)' }} />}
+                  {applyStatus.state === 'done' && <CheckCircle size={13} color="#16a34a" />}
+                  {applyStatus.state === 'error' && <XCircle size={13} color="var(--color-danger)" />}
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>
+                    {applyStatus.state === 'running' ? 'Updating…' : applyStatus.state === 'done' ? 'Update complete' : 'Update failed'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, fontFamily: 'monospace', background: 'rgba(0,0,0,0.05)', borderRadius: 4, padding: '8px 10px', maxHeight: 200, overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                  {applyStatus.log.length > 0 ? applyStatus.log.join('\n') : 'Waiting for output…'}
+                </div>
+                {applyStatus.state === 'done' && (
+                  <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 8, marginBottom: 0 }}>
+                    The rebuild is running in the background. This page will become temporarily unavailable (502) while Docker restarts — refresh after a few minutes.
+                  </p>
+                )}
+                {applyStatus.state === 'error' && (
+                  <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 8, marginBottom: 0 }}>
+                    One-time fix: add the Docker socket mount to your deploy
+                    (<code>docker-compose.yml</code> → app service → volumes:
+                    <code> - /var/run/docker.sock:/var/run/docker.sock</code>), then run{' '}
+                    <code>sudo docker compose up -d</code> on the server.
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
@@ -2362,6 +2440,28 @@ sudo docker compose --env-file /opt/enlight/.env up -d --build`;
         </>
       )}
     </Section>
+
+    <Section title="Update Source">
+      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+        Configure which repository and branch Enlight checks for updates. Changing the repo URL will clone fresh on next update.
+      </p>
+      <Field label="Provider">
+        <select value={sourceForm.provider} onChange={e => setSourceForm(f => ({ ...f, provider: e.target.value }))} style={{ maxWidth: 200 }}>
+          <option value="github">GitHub</option>
+          <option value="gitlab">GitLab</option>
+          <option value="bitbucket">Bitbucket</option>
+        </select>
+      </Field>
+      <Field label="Repository URL" hint="Full clone URL, e.g. https://github.com/rbacon4/enlight-itsm">
+        <input value={sourceForm.repoUrl} onChange={e => setSourceForm(f => ({ ...f, repoUrl: e.target.value }))} placeholder="https://github.com/owner/repo" style={{ maxWidth: 480 }} />
+      </Field>
+      <Field label="Branch" hint="Branch to track (default: main)">
+        <input value={sourceForm.branch} onChange={e => setSourceForm(f => ({ ...f, branch: e.target.value }))} placeholder="main" style={{ maxWidth: 200 }} />
+      </Field>
+      {sourceError && <div style={{ color: 'var(--color-danger)', fontSize: 13, marginBottom: 8 }}>{sourceError}</div>}
+      <SaveBar saving={false} saved={sourceSaved} onSave={handleSaveSource} />
+    </Section>
+    </>
   );
 }
 
@@ -2461,6 +2561,11 @@ export function SettingsPage() {
           {activeTab === 'slack'    && <SlackTab    org={org} onSaved={handleSaved} />}
           {activeTab === 'cloud'    && <CloudTab    org={org} onSaved={handleSaved} />}
           {activeTab === 'offboarding' && <OffboardingTab org={org} onSaved={handleSaved} />}
+          {activeTab === 'rippling'   && <RipplingTab />}
+          {activeTab === 'jumpcloud'  && <JumpCloudTab />}
+          {activeTab === 'okta'       && <OktaTab />}
+          {activeTab === 'secrets'    && <SecretsTab />}
+          {activeTab === 'variables'  && <VariablesTab />}
           {activeTab === 'roles'    && <RolesTab />}
           {activeTab === 'mcp-keys' && <MCPKeysTab />}
           {activeTab === 'security' && <SecurityTab org={org} onSaved={handleSaved} />}
@@ -2566,7 +2671,7 @@ function WebhooksTab() {
     <div>
       {newSecret && (
         <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '12px 16px', marginBottom: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>🔑 Webhook secret — copy it now, it won't be shown again</div>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}><KeyRound size={14} /> Webhook secret — copy it now, it won't be shown again</div>
           <div style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all', marginBottom: 8 }}>{newSecret}</div>
           <button onClick={() => setNewSecret(null)} style={{ fontSize: 12, color: '#92400e', background: 'none', border: 'none', cursor: 'pointer' }}>Dismiss</button>
         </div>
@@ -2766,6 +2871,517 @@ function LicenseTab() {
             </div>
           </div>
         )
+      )}
+    </Section>
+  );
+}
+
+// ── Helper: Secret/Password input with show/hide toggle ───────────────────────
+
+function SecretInput({ value, onChange, placeholder, saved }: { value: string; onChange: (v: string) => void; placeholder?: string; saved?: boolean }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ display: 'flex', gap: 0, maxWidth: 480 }}>
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{ flex: 1, borderRadius: '6px 0 0 6px', border: '1px solid var(--color-border)', borderRight: 'none', padding: '8px 10px', fontSize: 13 }}
+      />
+      <button type="button" onClick={() => setShow(s => !s)}
+        style={{ padding: '0 10px', border: '1px solid var(--color-border)', borderRadius: '0 6px 6px 0', background: 'var(--color-surface-2)', cursor: 'pointer' }}>
+        {show ? <EyeOff size={14} /> : <Eye size={14} />}
+      </button>
+      {saved && <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--color-success)', alignSelf: 'center' }}>Saved</span>}
+    </div>
+  );
+}
+
+// ── Rippling Tab ──────────────────────────────────────────────────────────────
+
+function RipplingTab() {
+  const [form, setForm] = useState({ apiToken: '', apiVersion: '2024-01-31', syncEnabled: false, offboardingEnabled: false, deviceUnenrollEnabled: false });
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+  const [testResult, setTestResult] = useState<{ ok: boolean; workerCount?: number; error?: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | undefined>();
+
+  const { data: settings } = useQuery({ queryKey: ['settings-rippling'], queryFn: () => api.get<Record<string, unknown>>('/settings/rippling') });
+  useEffect(() => {
+    if (!settings) return;
+    setForm(f => ({ ...f, apiVersion: String(settings.apiVersion ?? '2024-01-31'), syncEnabled: Boolean(settings.syncEnabled), offboardingEnabled: Boolean(settings.offboardingEnabled), deviceUnenrollEnabled: Boolean(settings.deviceUnenrollEnabled) }));
+    setLastSync(settings.lastSyncAt as string | undefined);
+  }, [settings]);
+
+  const handleSave = async () => {
+    setError(''); setSaved(false);
+    try {
+      await api.put('/settings/rippling', form);
+      setSaved(true); setTimeout(() => setSaved(false), 3000);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Save failed'); }
+  };
+  const handleTest = async () => {
+    setTesting(true); setTestResult(null);
+    try { setTestResult(await api.post('/settings/rippling/test', {})); } catch { setTestResult({ ok: false, error: 'Request failed' }); }
+    finally { setTesting(false); }
+  };
+  const handleSync = async () => {
+    setSyncing(true);
+    try { await api.post('/settings/rippling/sync', {}); } finally { setSyncing(false); }
+  };
+
+  return (
+    <Section title="Rippling IT">
+      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 20 }}>Connect to Rippling IT for employee directory sync and automated offboarding.</p>
+      <Field label="API Token" hint="Bearer token from Rippling → Settings → API Tokens">
+        <SecretInput value={form.apiToken} onChange={v => setForm(f => ({ ...f, apiToken: v }))} placeholder="Leave blank to keep existing" saved={Boolean(settings?.apiTokenConfigured) && !form.apiToken} />
+      </Field>
+      <Field label="API Version">
+        <input value={form.apiVersion} onChange={e => setForm(f => ({ ...f, apiVersion: e.target.value }))} style={{ maxWidth: 180 }} />
+      </Field>
+      <Field label="Directory Sync">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <input type="checkbox" checked={form.syncEnabled} onChange={e => setForm(f => ({ ...f, syncEnabled: e.target.checked }))} />
+          Enable directory sync every 4 hours
+        </label>
+        {lastSync && <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4 }}>Last synced: {relTime(lastSync)}</div>}
+      </Field>
+      <Field label="Offboarding">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <input type="checkbox" checked={form.offboardingEnabled} onChange={e => setForm(f => ({ ...f, offboardingEnabled: e.target.checked }))} />
+          Deactivate worker and revoke app access during offboarding
+        </label>
+      </Field>
+      <Field label="Device Unenroll">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <input type="checkbox" checked={form.deviceUnenrollEnabled} disabled={!form.offboardingEnabled} onChange={e => setForm(f => ({ ...f, deviceUnenrollEnabled: e.target.checked }))} />
+          Unenroll managed devices during offboarding
+        </label>
+      </Field>
+      {testResult && (
+        <div style={{ fontSize: 13, marginBottom: 12, color: testResult.ok ? 'var(--color-success)' : 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {testResult.ok ? <CheckCircle size={14} /> : <XCircle size={14} />}
+          {testResult.ok ? `Connected — ${testResult.workerCount ?? 0} worker(s) found.` : `Failed: ${testResult.error}`}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button className="btn-primary" onClick={handleSave}>Save Changes</button>
+        {saved && <span style={{ fontSize: 13, color: 'var(--color-success)' }}>Saved</span>}
+        <button className="btn-secondary" onClick={handleTest} disabled={testing}>{testing ? 'Testing…' : 'Test Connection'}</button>
+        <button className="btn-secondary" onClick={handleSync} disabled={syncing}>{syncing ? 'Queuing…' : 'Sync Now'}</button>
+        {error && <span style={{ fontSize: 13, color: 'var(--color-danger)' }}>{error}</span>}
+      </div>
+    </Section>
+  );
+}
+
+// ── JumpCloud Tab ─────────────────────────────────────────────────────────────
+
+function JumpCloudTab() {
+  const [form, setForm] = useState({ authMode: 'apiKey', apiKey: '', clientId: '', clientSecret: '', syncEnabled: false, offboardingEnabled: false, systemUnbindEnabled: false });
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+  const [testResult, setTestResult] = useState<{ ok: boolean; userCount?: number; error?: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | undefined>();
+
+  const { data: settings } = useQuery({ queryKey: ['settings-jumpcloud'], queryFn: () => api.get<Record<string, unknown>>('/settings/jumpcloud') });
+  useEffect(() => {
+    if (!settings) return;
+    setForm(f => ({ ...f, authMode: String(settings.authMode ?? 'apiKey'), clientId: String(settings.clientId ?? ''), syncEnabled: Boolean(settings.syncEnabled), offboardingEnabled: Boolean(settings.offboardingEnabled), systemUnbindEnabled: Boolean(settings.systemUnbindEnabled) }));
+    setLastSync(settings.lastSyncAt as string | undefined);
+  }, [settings]);
+
+  const handleSave = async () => {
+    setError(''); setSaved(false);
+    try { await api.put('/settings/jumpcloud', form); setSaved(true); setTimeout(() => setSaved(false), 3000); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Save failed'); }
+  };
+  const handleTest = async () => {
+    setTesting(true); setTestResult(null);
+    try { setTestResult(await api.post('/settings/jumpcloud/test', {})); } catch { setTestResult({ ok: false, error: 'Request failed' }); }
+    finally { setTesting(false); }
+  };
+  const handleSync = async () => {
+    setSyncing(true);
+    try { await api.post('/settings/jumpcloud/sync', {}); } finally { setSyncing(false); }
+  };
+
+  return (
+    <Section title="JumpCloud">
+      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 20 }}>Connect to JumpCloud for employee directory sync and automated offboarding.</p>
+      <Field label="Authentication Mode">
+        <div style={{ display: 'flex', gap: 16 }}>
+          {['apiKey', 'serviceAccount'].map(m => (
+            <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+              <input type="radio" name="jcAuthMode" value={m} checked={form.authMode === m} onChange={() => setForm(f => ({ ...f, authMode: m }))} />
+              {m === 'apiKey' ? 'API Key' : 'Service Account (OAuth 2.0)'}
+            </label>
+          ))}
+        </div>
+      </Field>
+      {form.authMode === 'apiKey' ? (
+        <Field label="API Key">
+          <SecretInput value={form.apiKey} onChange={v => setForm(f => ({ ...f, apiKey: v }))} placeholder="Leave blank to keep existing" saved={Boolean(settings?.apiKeyConfigured) && !form.apiKey} />
+        </Field>
+      ) : (
+        <>
+          <Field label="Client ID">
+            <input value={form.clientId} onChange={e => setForm(f => ({ ...f, clientId: e.target.value }))} style={{ maxWidth: 400 }} />
+          </Field>
+          <Field label="Client Secret">
+            <SecretInput value={form.clientSecret} onChange={v => setForm(f => ({ ...f, clientSecret: v }))} placeholder="Leave blank to keep existing" saved={Boolean(settings?.clientSecretConfigured) && !form.clientSecret} />
+          </Field>
+        </>
+      )}
+      <Field label="Directory Sync">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <input type="checkbox" checked={form.syncEnabled} onChange={e => setForm(f => ({ ...f, syncEnabled: e.target.checked }))} />
+          Enable directory sync every 4 hours
+        </label>
+        {lastSync && <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4 }}>Last synced: {relTime(lastSync)}</div>}
+      </Field>
+      <Field label="Offboarding">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <input type="checkbox" checked={form.offboardingEnabled} onChange={e => setForm(f => ({ ...f, offboardingEnabled: e.target.checked }))} />
+          Suspend user and remove group memberships during offboarding
+        </label>
+      </Field>
+      <Field label="System Unbind">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <input type="checkbox" checked={form.systemUnbindEnabled} disabled={!form.offboardingEnabled} onChange={e => setForm(f => ({ ...f, systemUnbindEnabled: e.target.checked }))} />
+          Unbind managed systems during offboarding
+        </label>
+      </Field>
+      {testResult && (
+        <div style={{ fontSize: 13, marginBottom: 12, color: testResult.ok ? 'var(--color-success)' : 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {testResult.ok ? <CheckCircle size={14} /> : <XCircle size={14} />}
+          {testResult.ok ? `Connected — ${testResult.userCount ?? 0} user(s) found.` : `Failed: ${testResult.error}`}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button className="btn-primary" onClick={handleSave}>Save Changes</button>
+        {saved && <span style={{ fontSize: 13, color: 'var(--color-success)' }}>Saved</span>}
+        <button className="btn-secondary" onClick={handleTest} disabled={testing}>{testing ? 'Testing…' : 'Test Connection'}</button>
+        <button className="btn-secondary" onClick={handleSync} disabled={syncing}>{syncing ? 'Queuing…' : 'Sync Now'}</button>
+        {error && <span style={{ fontSize: 13, color: 'var(--color-danger)' }}>{error}</span>}
+      </div>
+    </Section>
+  );
+}
+
+// ── Okta Tab ──────────────────────────────────────────────────────────────────
+
+function OktaTab() {
+  const [form, setForm] = useState({ domain: '', authMode: 'ssws', apiToken: '', clientId: '', privateKeyJwk: '', syncEnabled: false, offboardingEnabled: false, revokeSessionsEnabled: true, removeGroupsEnabled: true });
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+  const [testResult, setTestResult] = useState<{ ok: boolean; orgName?: string; error?: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | undefined>();
+
+  const { data: settings } = useQuery({ queryKey: ['settings-okta'], queryFn: () => api.get<Record<string, unknown>>('/settings/okta') });
+  useEffect(() => {
+    if (!settings) return;
+    setForm(f => ({ ...f, domain: String(settings.domain ?? ''), authMode: String(settings.authMode ?? 'ssws'), clientId: String(settings.clientId ?? ''), syncEnabled: Boolean(settings.syncEnabled), offboardingEnabled: Boolean(settings.offboardingEnabled), revokeSessionsEnabled: settings.revokeSessionsEnabled !== false, removeGroupsEnabled: settings.removeGroupsEnabled !== false }));
+    setLastSync(settings.lastSyncAt as string | undefined);
+  }, [settings]);
+
+  const handleSave = async () => {
+    setError(''); setSaved(false);
+    try { await api.put('/settings/okta', form); setSaved(true); setTimeout(() => setSaved(false), 3000); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Save failed'); }
+  };
+  const handleTest = async () => {
+    setTesting(true); setTestResult(null);
+    try { setTestResult(await api.post('/settings/okta/test', {})); } catch { setTestResult({ ok: false, error: 'Request failed' }); }
+    finally { setTesting(false); }
+  };
+  const handleSync = async () => {
+    setSyncing(true);
+    try { await api.post('/settings/okta/sync', {}); } finally { setSyncing(false); }
+  };
+
+  return (
+    <Section title="Okta">
+      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 20 }}>Connect to Okta for employee directory sync and automated offboarding.</p>
+      <Field label="Okta Domain" hint="e.g. your-org.okta.com (without https://)">
+        <input value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value }))} placeholder="your-org.okta.com" style={{ maxWidth: 320 }} />
+      </Field>
+      <Field label="Authentication Mode">
+        <div style={{ display: 'flex', gap: 16 }}>
+          {[['ssws', 'SSWS API Token'], ['oauth', 'OAuth 2.0 Service App (Private Key JWT)']].map(([m, label]) => (
+            <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+              <input type="radio" name="oktaAuthMode" value={m} checked={form.authMode === m} onChange={() => setForm(f => ({ ...f, authMode: m! }))} />
+              {label}
+            </label>
+          ))}
+        </div>
+      </Field>
+      {form.authMode === 'ssws' ? (
+        <Field label="API Token">
+          <SecretInput value={form.apiToken} onChange={v => setForm(f => ({ ...f, apiToken: v }))} placeholder="Leave blank to keep existing" saved={Boolean(settings?.apiTokenConfigured) && !form.apiToken} />
+        </Field>
+      ) : (
+        <>
+          <Field label="Client ID">
+            <input value={form.clientId} onChange={e => setForm(f => ({ ...f, clientId: e.target.value }))} style={{ maxWidth: 400 }} />
+          </Field>
+          <Field label="Private Key JWK" hint="Paste the private key JSON Web Key (JWK) for the Okta service app.">
+            <textarea value={form.privateKeyJwk} onChange={e => setForm(f => ({ ...f, privateKeyJwk: e.target.value }))} rows={4} placeholder='Leave blank to keep existing — e.g. {"kty":"RSA","d":"..."}' style={{ maxWidth: 560, fontFamily: 'monospace', fontSize: 11 }} />
+            {Boolean(settings?.privateKeyJwkConfigured) && !form.privateKeyJwk && <span style={{ fontSize: 12, color: 'var(--color-success)', marginLeft: 6 }}>Saved</span>}
+          </Field>
+        </>
+      )}
+      <Field label="Directory Sync">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <input type="checkbox" checked={form.syncEnabled} onChange={e => setForm(f => ({ ...f, syncEnabled: e.target.checked }))} />
+          Enable directory sync every 4 hours
+        </label>
+        {lastSync && <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4 }}>Last synced: {relTime(lastSync)}</div>}
+      </Field>
+      <Field label="Offboarding">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 6 }}>
+          <input type="checkbox" checked={form.offboardingEnabled} onChange={e => setForm(f => ({ ...f, offboardingEnabled: e.target.checked }))} />
+          Deactivate user during offboarding
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 6 }}>
+          <input type="checkbox" checked={form.revokeSessionsEnabled} disabled={!form.offboardingEnabled} onChange={e => setForm(f => ({ ...f, revokeSessionsEnabled: e.target.checked }))} />
+          Revoke active sessions during offboarding
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <input type="checkbox" checked={form.removeGroupsEnabled} disabled={!form.offboardingEnabled} onChange={e => setForm(f => ({ ...f, removeGroupsEnabled: e.target.checked }))} />
+          Remove from groups during offboarding (except Everyone)
+        </label>
+      </Field>
+      {testResult && (
+        <div style={{ fontSize: 13, marginBottom: 12, color: testResult.ok ? 'var(--color-success)' : 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {testResult.ok ? <CheckCircle size={14} /> : <XCircle size={14} />}
+          {testResult.ok ? `Connected — org: ${testResult.orgName ?? 'Unknown'}.` : `Failed: ${testResult.error}`}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button className="btn-primary" onClick={handleSave}>Save Changes</button>
+        {saved && <span style={{ fontSize: 13, color: 'var(--color-success)' }}>Saved</span>}
+        <button className="btn-secondary" onClick={handleTest} disabled={testing}>{testing ? 'Testing…' : 'Test Connection'}</button>
+        <button className="btn-secondary" onClick={handleSync} disabled={syncing}>{syncing ? 'Queuing…' : 'Sync Now'}</button>
+        {error && <span style={{ fontSize: 13, color: 'var(--color-danger)' }}>{error}</span>}
+      </div>
+    </Section>
+  );
+}
+
+// ── Secrets Tab ───────────────────────────────────────────────────────────────
+
+interface Secret { id: string; name: string; description: string; valuePreview: string; createdAt: string; updatedAt: string; lastUsedAt: string | null }
+
+function SecretsTab() {
+  const qc = useQueryClient();
+  const { data: secrets = [], isLoading } = useQuery<Secret[]>({ queryKey: ['secrets'], queryFn: () => api.get('/secrets') });
+  const [modal, setModal] = useState<null | 'add' | { secret: Secret }>(null);
+  const [form, setForm] = useState({ name: '', description: '', value: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copyRef = (name: string) => {
+    navigator.clipboard.writeText(`{{secrets.${name}}}`).then(() => { setCopied(name); setTimeout(() => setCopied(null), 1500); }).catch(() => {});
+  };
+
+  const openAdd = () => { setForm({ name: '', description: '', value: '' }); setError(''); setModal('add'); };
+  const openEdit = (s: Secret) => { setForm({ name: s.name, description: s.description, value: '' }); setError(''); setModal({ secret: s }); };
+
+  const handleSave = async () => {
+    setSaving(true); setError('');
+    try {
+      if (modal === 'add') {
+        await api.post('/secrets', form);
+      } else if (modal && typeof modal === 'object') {
+        await api.put(`/secrets/${modal.secret.id}`, form);
+      }
+      qc.invalidateQueries({ queryKey: ['secrets'] });
+      setModal(null);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete secret "${name}"?`)) return;
+    await api.delete(`/secrets/${id}`);
+    qc.invalidateQueries({ queryKey: ['secrets'] });
+  };
+
+  return (
+    <Section title="Secrets">
+      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+        Store named encrypted secrets and reference them in automation templates as <code>{'{{secrets.MY_SECRET}}'}</code>.
+        Names must be uppercase letters, numbers, and underscores.
+      </p>
+      <button className="btn-primary" onClick={openAdd} style={{ marginBottom: 20 }}>
+        <Plus size={14} style={{ marginRight: 4 }} />Add Secret
+      </button>
+      {isLoading && <div style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>Loading…</div>}
+      {secrets.length > 0 && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+              {['Name', 'Description', 'Value', 'Last Used', ''].map(h => (
+                <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 12 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {secrets.map(s => (
+              <tr key={s.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12 }}>{s.name}</td>
+                <td style={{ padding: '10px 12px', color: 'var(--color-text-muted)' }}>{s.description || '—'}</td>
+                <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12 }}>{s.valuePreview}</td>
+                <td style={{ padding: '10px 12px', color: 'var(--color-text-muted)', fontSize: 12 }}>{s.lastUsedAt ? relTime(s.lastUsedAt) : '—'}</td>
+                <td style={{ padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button title={`Copy reference {{secrets.${s.name}}}`} onClick={() => copyRef(s.name)}
+                      style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--color-border)', background: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Copy size={12} />{copied === s.name ? 'Copied' : '{{...}}'}
+                    </button>
+                    <button onClick={() => openEdit(s)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--color-border)', background: 'none', cursor: 'pointer', fontSize: 12 }}>Edit</button>
+                    <button onClick={() => handleDelete(s.id, s.name)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--color-danger)', color: 'var(--color-danger)', background: 'none', cursor: 'pointer', fontSize: 12 }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {modal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'var(--color-surface)', borderRadius: 10, padding: 28, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>{modal === 'add' ? 'Add Secret' : 'Edit Secret'}</h3>
+            <Field label="Name" hint="Uppercase letters, numbers, and underscores. E.g. SLACK_WEBHOOK_URL">
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') }))} placeholder="MY_SECRET_NAME" disabled={modal !== 'add'} />
+            </Field>
+            <Field label="Description">
+              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="What is this secret used for?" />
+            </Field>
+            <Field label="Value" hint={modal !== 'add' ? 'Leave blank to keep the existing value.' : ''}>
+              <textarea value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} rows={3} placeholder={modal !== 'add' ? 'Leave blank to keep existing…' : 'Secret value'} style={{ fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }} />
+            </Field>
+            {error && <div style={{ color: 'var(--color-danger)', fontSize: 13, marginBottom: 10 }}>{error}</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+              <button style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid var(--color-border)', background: 'none', cursor: 'pointer' }} onClick={() => setModal(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+// ── Variables Tab ─────────────────────────────────────────────────────────────
+
+interface Variable { id: string; name: string; value: string; description: string; updatedAt: string }
+
+function VariablesTab() {
+  const qc = useQueryClient();
+  const { data: variables = [], isLoading } = useQuery<Variable[]>({ queryKey: ['variables'], queryFn: () => api.get('/variables') });
+  const [modal, setModal] = useState<null | 'add' | { variable: Variable }>(null);
+  const [form, setForm] = useState({ name: '', value: '', description: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copyRef = (name: string) => {
+    navigator.clipboard.writeText(`{{vars.${name}}}`).then(() => { setCopied(name); setTimeout(() => setCopied(null), 1500); }).catch(() => {});
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setError('');
+    try {
+      if (modal === 'add') await api.post('/variables', form);
+      else if (modal && typeof modal === 'object') await api.put(`/variables/${modal.variable.id}`, form);
+      qc.invalidateQueries({ queryKey: ['variables'] });
+      setModal(null);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete variable "${name}"?`)) return;
+    await api.delete(`/variables/${id}`);
+    qc.invalidateQueries({ queryKey: ['variables'] });
+  };
+
+  return (
+    <Section title="Variables">
+      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+        Store non-secret named values and reference them in templates as <code>{'{{vars.MY_VAR}}'}</code>.
+        Variables are stored in plain text — use Secrets for sensitive values.
+      </p>
+      <button className="btn-primary" onClick={() => { setForm({ name: '', value: '', description: '' }); setError(''); setModal('add'); }} style={{ marginBottom: 20 }}>
+        <Plus size={14} style={{ marginRight: 4 }} />Add Variable
+      </button>
+      {isLoading && <div style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>Loading…</div>}
+      {variables.length > 0 && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+              {['Name', 'Value', 'Description', 'Updated', ''].map(h => (
+                <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: 12 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {variables.map(v => (
+              <tr key={v.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12 }}>{v.name}</td>
+                <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.value.slice(0, 50) || '—'}</td>
+                <td style={{ padding: '10px 12px', color: 'var(--color-text-muted)' }}>{v.description || '—'}</td>
+                <td style={{ padding: '10px 12px', color: 'var(--color-text-muted)', fontSize: 12 }}>{relTime(v.updatedAt)}</td>
+                <td style={{ padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button title={`Copy reference {{vars.${v.name}}}`} onClick={() => copyRef(v.name)}
+                      style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--color-border)', background: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Copy size={12} />{copied === v.name ? 'Copied' : '{{...}}'}
+                    </button>
+                    <button onClick={() => { setForm({ name: v.name, value: v.value, description: v.description }); setError(''); setModal({ variable: v }); }}
+                      style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--color-border)', background: 'none', cursor: 'pointer', fontSize: 12 }}>Edit</button>
+                    <button onClick={() => handleDelete(v.id, v.name)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--color-danger)', color: 'var(--color-danger)', background: 'none', cursor: 'pointer', fontSize: 12 }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {modal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'var(--color-surface)', borderRadius: 10, padding: 28, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>{modal === 'add' ? 'Add Variable' : 'Edit Variable'}</h3>
+            <Field label="Name" hint="Uppercase letters, numbers, and underscores.">
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') }))} placeholder="MY_VARIABLE" disabled={modal !== 'add'} />
+            </Field>
+            <Field label="Value">
+              <textarea value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} rows={3} placeholder="Variable value" style={{ resize: 'vertical' }} />
+            </Field>
+            <Field label="Description">
+              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="What is this variable used for?" />
+            </Field>
+            {error && <div style={{ color: 'var(--color-danger)', fontSize: 13, marginBottom: 10 }}>{error}</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+              <button style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid var(--color-border)', background: 'none', cursor: 'pointer' }} onClick={() => setModal(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
     </Section>
   );

@@ -24,6 +24,9 @@ import { totpRouter } from './routes/totp.js';
 import { templatesRouter } from './routes/templates.js';
 import { csatRouter } from './routes/csat.js';
 import { integrationsRouter, webhookReceiverRouter } from './routes/integrations.js';
+import { settingsRouter } from './routes/settings.js';
+import { secretsRouter } from './routes/secrets.js';
+import { variablesRouter } from './routes/variables.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { mountSlackHttp } from './slack/index.js';
 import { isLicensingEnabled } from './lib/license.js';
@@ -116,6 +119,9 @@ api.use('/projects/:projectId/automations', automationsRouter);
 api.use('/projects/:projectId/oncall',        oncallRouter);
 api.use('/projects/:projectId/templates',    templatesRouter);
 api.use('/projects/:projectId/integrations', integrationsRouter);
+api.use('/settings', settingsRouter);
+api.use('/secrets', secretsRouter);
+api.use('/variables', variablesRouter);
 
 app.use(isProduction ? '/api' : '/', api);
 

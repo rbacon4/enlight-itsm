@@ -134,10 +134,160 @@ export interface OrganizationSettings {
   storageProvider?: StorageProvider;
   // Google Workspace offboarding automation
   offboarding?: OffboardingConfig;
+  // Directory integrations
+  rippling?: RipplingSettings;
+  jumpcloud?: JumpCloudSettings;
+  okta?: OktaSettings;
+  // Update source configuration
+  updateRepoUrl?: string;
+  updateProvider?: 'github' | 'gitlab' | 'bitbucket';
+  updateBranch?: string;
 }
 
 /** Object-storage backend for attachments. */
 export type StorageProvider = 'none' | 'gcs' | 's3' | 'spaces';
+
+// ── Rippling IT ───────────────────────────────────────────────────────────────
+
+export interface RipplingSettings {
+  apiToken?: string;
+  apiVersion?: string;
+  syncEnabled?: boolean;
+  offboardingEnabled?: boolean;
+  deviceUnenrollEnabled?: boolean;
+  lastSyncAt?: string;
+}
+
+export interface RipplingWorker {
+  id: string;
+  employeeNumber?: string;
+  workEmail: string;
+  personalEmail?: string;
+  name: { firstName: string; lastName: string };
+  department?: string;
+  title?: string;
+  startDate?: string;
+  terminationDate?: string;
+  employmentStatus: 'ACTIVE' | 'INACTIVE' | 'TERMINATED';
+  managerId?: string;
+}
+
+export interface RipplingDevice {
+  id: string;
+  name: string;
+  serial?: string;
+  platform: string;
+  enrollmentStatus: string;
+}
+
+export interface RipplingWorkerPage {
+  data: RipplingWorker[];
+  nextCursor?: string;
+}
+
+// ── JumpCloud ─────────────────────────────────────────────────────────────────
+
+export type JumpCloudAuthMode = 'apiKey' | 'serviceAccount';
+
+export interface JumpCloudSettings {
+  authMode?: JumpCloudAuthMode;
+  apiKey?: string;
+  clientId?: string;
+  clientSecret?: string;
+  /** Cached OAuth token — encrypted at rest. */
+  cachedAccessToken?: string;
+  tokenExpiresAt?: string;
+  syncEnabled?: boolean;
+  offboardingEnabled?: boolean;
+  systemUnbindEnabled?: boolean;
+  lastSyncAt?: string;
+}
+
+export interface JumpCloudUser {
+  id: string;
+  username: string;
+  email: string;
+  firstname?: string;
+  lastname?: string;
+  department?: string;
+  jobTitle?: string;
+  suspended: boolean;
+  activated: boolean;
+  created?: string;
+}
+
+export interface JumpCloudSystem {
+  id: string;
+  displayName?: string;
+  hostname?: string;
+  os?: string;
+  active: boolean;
+}
+
+export interface JumpCloudUserPage {
+  results: JumpCloudUser[];
+  totalCount: number;
+  skip: number;
+  limit: number;
+}
+
+// ── Okta ──────────────────────────────────────────────────────────────────────
+
+export type OktaAuthMode = 'ssws' | 'oauth';
+
+export type OktaUserStatus =
+  | 'STAGED'
+  | 'PROVISIONED'
+  | 'ACTIVE'
+  | 'RECOVERY'
+  | 'PASSWORD_EXPIRED'
+  | 'LOCKED_OUT'
+  | 'SUSPENDED'
+  | 'DEPROVISIONED';
+
+export interface OktaSettings {
+  domain?: string;
+  authMode?: OktaAuthMode;
+  apiToken?: string;
+  clientId?: string;
+  privateKeyJwk?: string;
+  /** Cached OAuth token — encrypted at rest. */
+  cachedAccessToken?: string;
+  tokenExpiresAt?: string;
+  syncEnabled?: boolean;
+  offboardingEnabled?: boolean;
+  revokeSessionsEnabled?: boolean;
+  removeGroupsEnabled?: boolean;
+  lastSyncAt?: string;
+}
+
+export interface OktaUser {
+  id: string;
+  status: OktaUserStatus;
+  created?: string;
+  activated?: string;
+  lastLogin?: string;
+  profile: {
+    login: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    displayName?: string;
+    department?: string;
+    title?: string;
+    mobilePhone?: string;
+  };
+}
+
+export interface OktaGroup {
+  id: string;
+  profile: { name: string; description?: string };
+}
+
+export interface OktaUserPage {
+  users: OktaUser[];
+  nextCursor?: string;
+}
 
 /**
  * Shared Google Cloud configuration. A single GCP project and service account

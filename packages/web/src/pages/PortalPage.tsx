@@ -9,6 +9,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { CheckCircle2 } from 'lucide-react';
 
 const API_BASE = import.meta.env['VITE_API_URL'] ?? '/api';
 
@@ -106,7 +107,7 @@ export function PortalPage() {
     return (
       <Wrapper projectName={info.projectName}>
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><CheckCircle2 size={48} color="var(--color-success)" /></div>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Ticket submitted!</h2>
           <p style={{ color: 'var(--color-text-muted)', fontSize: 14, marginBottom: 4 }}>
             Reference: <strong>{submitted.ticketRef}</strong>

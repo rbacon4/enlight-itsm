@@ -6,6 +6,8 @@ import {
   integer,
   jsonb,
   uuid,
+  varchar,
+  serial,
   pgEnum,
   index,
   uniqueIndex,
@@ -877,3 +879,97 @@ export const knowledgeSourcesRelations = relations(
     chunks: many(knowledgeChunks),
   }),
 );
+
+// ── Rippling IT ───────────────────────────────────────────────────────────────
+
+export const ripplingWorkers = pgTable('rippling_workers', {
+  id: serial('id').primaryKey(),
+  orgId: uuid('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  ripplingId: varchar('rippling_id', { length: 128 }).notNull(),
+  workEmail: varchar('work_email', { length: 255 }).notNull(),
+  personalEmail: varchar('personal_email', { length: 255 }),
+  displayName: varchar('display_name', { length: 255 }),
+  department: varchar('department', { length: 255 }),
+  title: varchar('title', { length: 255 }),
+  employmentStatus: varchar('employment_status', { length: 32 }).notNull().default('ACTIVE'),
+  ripplingData: jsonb('rippling_data'),
+  syncedAt: timestamp('synced_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('rippling_workers_org_rippling_id').on(t.orgId, t.ripplingId),
+  index('rippling_workers_org_email').on(t.orgId, t.workEmail),
+]);
+
+// ── JumpCloud ─────────────────────────────────────────────────────────────────
+
+export const jumpcloudUsers = pgTable('jumpcloud_users', {
+  id: serial('id').primaryKey(),
+  orgId: uuid('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  jumpcloudId: varchar('jumpcloud_id', { length: 128 }).notNull(),
+  username: varchar('username', { length: 255 }).notNull(),
+  workEmail: varchar('work_email', { length: 255 }).notNull(),
+  displayName: varchar('display_name', { length: 255 }),
+  department: varchar('department', { length: 255 }),
+  title: varchar('title', { length: 255 }),
+  suspended: boolean('suspended').notNull().default(false),
+  employmentStatus: varchar('employment_status', { length: 32 }).notNull().default('ACTIVE'),
+  jumpcloudData: jsonb('jumpcloud_data'),
+  syncedAt: timestamp('synced_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('jumpcloud_users_org_jc_id').on(t.orgId, t.jumpcloudId),
+  index('jumpcloud_users_org_email').on(t.orgId, t.workEmail),
+]);
+
+// ── Okta ──────────────────────────────────────────────────────────────────────
+
+export const oktaUsers = pgTable('okta_users', {
+  id: serial('id').primaryKey(),
+  orgId: uuid('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  oktaId: varchar('okta_id', { length: 128 }).notNull(),
+  login: varchar('login', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  displayName: varchar('display_name', { length: 255 }),
+  firstName: varchar('first_name', { length: 255 }),
+  lastName: varchar('last_name', { length: 255 }),
+  department: varchar('department', { length: 255 }),
+  title: varchar('title', { length: 255 }),
+  status: varchar('status', { length: 32 }).notNull().default('ACTIVE'),
+  oktaData: jsonb('okta_data'),
+  syncedAt: timestamp('synced_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('okta_users_org_okta_id').on(t.orgId, t.oktaId),
+  index('okta_users_org_email').on(t.orgId, t.email),
+  index('okta_users_org_login').on(t.orgId, t.login),
+]);
+
+// ── Centralized secrets ────────────────────────────────────────────────────────
+
+export const orgSecrets = pgTable('org_secrets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 128 }).notNull(),
+  description: text('description').notNull().default(''),
+  /** Encrypted at rest via secretCrypto.encryptSecret(). */
+  value: text('value').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  lastUsedAt: timestamp('last_used_at'),
+}, (t) => [
+  uniqueIndex('org_secrets_org_name_idx').on(t.orgId, t.name),
+]);
+
+// ── Global variables ──────────────────────────────────────────────────────────
+
+export const orgVariables = pgTable('org_variables', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 128 }).notNull(),
+  value: text('value').notNull().default(''),
+  description: text('description').notNull().default(''),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('org_variables_org_name_idx').on(t.orgId, t.name),
+]);

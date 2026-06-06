@@ -189,7 +189,7 @@ function StepEditor({ listId, step, onClose, onSaved }: { listId: string; step: 
         },
       );
     },
-    onSuccess: (r) => setTestResult(`${r.success ? '✓' : '✗'} ${r.status ?? ''} ${r.error ?? ''} ${(r.responseSnippet ?? '').slice(0, 300)}`),
+    onSuccess: (r) => setTestResult(`${r.success ? '[OK]' : '[FAIL]'} ${r.status ?? ''} ${r.error ?? ''} ${(r.responseSnippet ?? '').slice(0, 300)}`),
     onError: (e: Error) => setTestResult(`Error: ${e.message}`),
   });
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '../lib/auth.js';
 import { api, downloadFile } from '../lib/api.js';
 import { QueryResultChart, QueryResultTable, CHART_TYPE_META } from '../components/QueryChart.js';
@@ -373,8 +374,8 @@ function ReportCard({ report, onEdit, onDelete, currentUserId }: {
           </button>
           {isOwner && (
             <>
-              <button onClick={onEdit} title="Edit" style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer', color: 'var(--color-text-muted)' }}>✏️</button>
-              <button onClick={onDelete} title="Delete" style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer', color: 'var(--color-danger)' }}>🗑️</button>
+              <button onClick={onEdit} title="Edit" style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
+              <button onClick={onDelete} title="Delete" style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer', color: 'var(--color-danger)', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
             </>
           )}
         </div>

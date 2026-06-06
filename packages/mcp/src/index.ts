@@ -5,10 +5,15 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import http from 'http';
 import { z } from 'zod';
 import { db } from './db.js';
-import { requests, projects, comments, mcpApiKeys } from '../../api/src/db/schema.js';
+import { requests, projects, comments, mcpApiKeys, organizations, ripplingWorkers, jumpcloudUsers, oktaUsers } from '../../api/src/db/schema.js';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { logger } from './logger.js';
+import { decryptOrgSettings } from '../../api/src/lib/secretCrypto.js';
+import { makeRipplingClient } from '../../api/src/lib/rippling.js';
+import { makeJumpCloudClient } from '../../api/src/lib/jumpcloud.js';
+import { makeOktaClient } from '../../api/src/lib/okta.js';
+import type { OrganizationSettings } from '@enlight/shared';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
@@ -178,6 +183,132 @@ function createServer() {
 
       if (!updated) return { content: [{ type: 'text', text: 'Request not found' }] };
       return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] };
+    },
+  );
+
+  // ── Directory integration tools ──────────────────────────────────────────────
+
+  server.tool(
+    'rippling_sync',
+    'Trigger an immediate Rippling IT directory sync for the specified org. Queues a background job.',
+    { orgId: z.string().describe('The org UUID to sync') },
+    async ({ orgId }) => {
+      try {
+        const { Queue } = await import('bullmq');
+        const q = new Queue('rippling-sync', { connection: { url: process.env['REDIS_URL'] ?? 'redis://localhost:6379' } });
+        await q.add('sync', { orgId }, { removeOnComplete: 5, removeOnFail: 10 });
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: true, message: 'Rippling sync job queued' }) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }) }] };
+      }
+    },
+  );
+
+  server.tool(
+    'rippling_offboard',
+    'Offboard a departing employee in Rippling IT. By default runs as a dry-run (mock). Set confirm: true to execute.',
+    {
+      orgId: z.string(),
+      email: z.string(),
+      confirm: z.boolean().default(false).describe('Set to true to actually execute; false = dry-run (mock mode)'),
+    },
+    async ({ orgId, email, confirm }) => {
+      try {
+        const [org] = await db.select({ settings: organizations.settings }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+        if (!org) return { content: [{ type: 'text', text: 'Org not found' }] };
+        const settings = decryptOrgSettings((org.settings ?? {}) as OrganizationSettings);
+        const client = confirm ? makeRipplingClient(settings) : makeRipplingClient({ ...settings, rippling: { ...settings.rippling } });
+        const unenroll = settings.rippling?.deviceUnenrollEnabled ?? false;
+        const result = confirm
+          ? await client.offboardByEmail(email, unenroll)
+          : { deactivated: true, appsRevoked: true, devicesUnenrolled: 0, mock: true };
+        return { content: [{ type: 'text', text: JSON.stringify({ ...result, dryRun: !confirm }) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: JSON.stringify({ error: err instanceof Error ? err.message : String(err) }) }] };
+      }
+    },
+  );
+
+  server.tool(
+    'jumpcloud_sync',
+    'Trigger an immediate JumpCloud directory sync for the specified org.',
+    { orgId: z.string() },
+    async ({ orgId }) => {
+      try {
+        const { Queue } = await import('bullmq');
+        const q = new Queue('jumpcloud-sync', { connection: { url: process.env['REDIS_URL'] ?? 'redis://localhost:6379' } });
+        await q.add('sync', { orgId }, { removeOnComplete: 5, removeOnFail: 10 });
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: true, message: 'JumpCloud sync job queued' }) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }) }] };
+      }
+    },
+  );
+
+  server.tool(
+    'jumpcloud_offboard',
+    'Offboard a departing employee in JumpCloud. By default runs as a dry-run. Set confirm: true to execute.',
+    {
+      orgId: z.string(),
+      email: z.string(),
+      confirm: z.boolean().default(false),
+    },
+    async ({ orgId, email, confirm }) => {
+      try {
+        const [org] = await db.select({ settings: organizations.settings }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+        if (!org) return { content: [{ type: 'text', text: 'Org not found' }] };
+        const settings = decryptOrgSettings((org.settings ?? {}) as OrganizationSettings);
+        const client = makeJumpCloudClient(settings, orgId);
+        const unbind = settings.jumpcloud?.systemUnbindEnabled ?? false;
+        const result = confirm
+          ? await client.offboardByEmail(email, unbind)
+          : { suspended: true, groupsRemoved: 2, systemsUnbound: 0, mock: true };
+        return { content: [{ type: 'text', text: JSON.stringify({ ...result, dryRun: !confirm }) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: JSON.stringify({ error: err instanceof Error ? err.message : String(err) }) }] };
+      }
+    },
+  );
+
+  server.tool(
+    'okta_sync',
+    'Trigger an immediate Okta directory sync for the specified org.',
+    { orgId: z.string() },
+    async ({ orgId }) => {
+      try {
+        const { Queue } = await import('bullmq');
+        const q = new Queue('okta-sync', { connection: { url: process.env['REDIS_URL'] ?? 'redis://localhost:6379' } });
+        await q.add('sync', { orgId }, { removeOnComplete: 5, removeOnFail: 10 });
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: true, message: 'Okta sync job queued' }) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }) }] };
+      }
+    },
+  );
+
+  server.tool(
+    'okta_offboard',
+    'Offboard a departing employee in Okta. By default runs as a dry-run. Set confirm: true to execute.',
+    {
+      orgId: z.string(),
+      email: z.string(),
+      confirm: z.boolean().default(false),
+    },
+    async ({ orgId, email, confirm }) => {
+      try {
+        const [org] = await db.select({ settings: organizations.settings }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+        if (!org) return { content: [{ type: 'text', text: 'Org not found' }] };
+        const settings = decryptOrgSettings((org.settings ?? {}) as OrganizationSettings);
+        const client = makeOktaClient(settings, orgId);
+        const revokeSessions = settings.okta?.revokeSessionsEnabled ?? true;
+        const removeGroups = settings.okta?.removeGroupsEnabled ?? true;
+        const result = confirm
+          ? await client.offboardByEmail(email, revokeSessions, removeGroups)
+          : { deactivated: true, sessionRevoked: true, groupsRemoved: 2, previousStatus: 'ACTIVE', mock: true };
+        return { content: [{ type: 'text', text: JSON.stringify({ ...result, dryRun: !confirm }) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: JSON.stringify({ error: err instanceof Error ? err.message : String(err) }) }] };
+      }
     },
   );
 

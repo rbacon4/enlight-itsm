@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { FolderOpen, Settings2, CheckCircle2, AlertCircle, ClipboardList, BarChart2, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../lib/auth.js';
 import { api } from '../lib/api.js';
 import { QueryResultChart, QueryResultTable, CHART_TYPE_META } from '../components/QueryChart.js';
@@ -38,14 +39,27 @@ type WidgetMeta = {
 };
 
 const WIDGET_META: Record<DashboardWidgetType, WidgetMeta> = {
-  stat_open:           { label: 'Open Requests',   icon: '📂', defaultColspan: 1, description: 'Count of open requests' },
-  stat_in_progress:    { label: 'In Progress',     icon: '⚙️', defaultColspan: 1, description: 'Requests being worked on' },
-  stat_resolved_today: { label: 'Resolved Today',  icon: '✅', defaultColspan: 1, description: 'Requests resolved today' },
-  stat_sla_breaches:   { label: 'SLA Breaches',    icon: '🚨', defaultColspan: 1, description: 'Requests past SLA deadline' },
-  recent_requests:     { label: 'Recent Requests', icon: '📋', defaultColspan: 3, description: 'Latest requests, filterable' },
-  project_summary:     { label: 'Project Summary', icon: '📊', defaultColspan: 1, description: 'Open / active per project' },
-  custom_query:        { label: 'Custom Query',    icon: '🔍', defaultColspan: 4, description: 'Table populated by a custom SQL query' },
+  stat_open:           { label: 'Open Requests',   icon: 'open',     defaultColspan: 1, description: 'Count of open requests' },
+  stat_in_progress:    { label: 'In Progress',     icon: 'progress', defaultColspan: 1, description: 'Requests being worked on' },
+  stat_resolved_today: { label: 'Resolved Today',  icon: 'resolved', defaultColspan: 1, description: 'Requests resolved today' },
+  stat_sla_breaches:   { label: 'SLA Breaches',    icon: 'sla',      defaultColspan: 1, description: 'Requests past SLA deadline' },
+  recent_requests:     { label: 'Recent Requests', icon: 'recent',   defaultColspan: 3, description: 'Latest requests, filterable' },
+  project_summary:     { label: 'Project Summary', icon: 'project',  defaultColspan: 1, description: 'Open / active per project' },
+  custom_query:        { label: 'Custom Query',    icon: 'query',    defaultColspan: 4, description: 'Table populated by a custom SQL query' },
 };
+
+function WidgetIcon({ icon, size = 16 }: { icon: string; size?: number }) {
+  switch (icon) {
+    case 'open':     return <FolderOpen size={size} />;
+    case 'progress': return <Settings2 size={size} />;
+    case 'resolved': return <CheckCircle2 size={size} />;
+    case 'sla':      return <AlertCircle size={size} />;
+    case 'recent':   return <ClipboardList size={size} />;
+    case 'project':  return <BarChart2 size={size} />;
+    case 'query':    return <Search size={size} />;
+    default:         return <ClipboardList size={size} />;
+  }
+}
 
 const ALL_WIDGET_TYPES = Object.keys(WIDGET_META) as DashboardWidgetType[];
 
@@ -267,7 +281,7 @@ function ProjectSummaryWidget({ widget, stats, loading }: { widget: DashboardWid
           <div style={{ display: 'flex', gap: 10, fontSize: 12 }}>
             {p.openCount > 0       && <span style={{ color: 'var(--color-primary)' }}>{p.openCount} open</span>}
             {p.inProgressCount > 0 && <span style={{ color: '#60a5fa' }}>{p.inProgressCount} active</span>}
-            {p.openCount === 0 && p.inProgressCount === 0 && <span style={{ color: 'var(--color-success)' }}>✓ Clear</span>}
+            {p.openCount === 0 && p.inProgressCount === 0 && <span style={{ color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={13} /> Clear</span>}
           </div>
         </div>
       ))}
@@ -355,7 +369,7 @@ function CustomQueryWidget({ widget }: { widget: DashboardWidget }) {
             : <QueryResultTable result={data} />}
           {data.truncated && (
             <div style={{ padding: '8px 14px', fontSize: 11, color: 'var(--color-text-muted)', background: 'var(--color-surface-2)', borderTop: '1px solid var(--color-border)' }}>
-              ⚠ Results truncated at 100 rows. Refine your query with a WHERE clause or ORDER BY + LIMIT.
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={11} /> Results truncated at 100 rows. Refine your query with a WHERE clause or ORDER BY + LIMIT.</span>
             </div>
           )}
         </>
@@ -465,7 +479,7 @@ function WidgetConfigModal({
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <span style={{ fontSize: 22 }}>{meta.icon}</span>
+          <span style={{ display: 'flex', alignItems: 'center' }}><WidgetIcon icon={meta.icon} size={22} /></span>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700 }}>Configure Widget</div>
             <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{meta.label}</div>
@@ -755,7 +769,7 @@ function AddWidgetModal({ existingTypes, onAdd, onClose }: { existingTypes: Set<
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: already ? 'var(--color-surface-2)' : 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, cursor: already ? 'default' : 'pointer', textAlign: 'left', opacity: already ? 0.5 : 1, color: 'var(--color-text)' }}
                 onMouseEnter={e => { if (!already) e.currentTarget.style.borderColor = 'var(--color-primary)'; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}>
-                <span style={{ fontSize: 22 }}>{meta.icon}</span>
+                <span style={{ display: 'flex', alignItems: 'center' }}><WidgetIcon icon={meta.icon} size={22} /></span>
                 <div style={{ flex: 1, textAlign: 'left' }}>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{meta.label}</div>
                   <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{meta.description}</div>
