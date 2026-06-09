@@ -176,6 +176,13 @@
       "when": 1780746050479,
       "tag": "0024_integrations_request_refs",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1780967628638,
+      "tag": "0025_kb_fts",
+      "breakpoints": true
     }
   ]
 }

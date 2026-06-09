@@ -12,6 +12,13 @@ import { getGDriveDocuments } from '../sources/gdrive.js';
 import { getNotionDocuments } from '../sources/notion.js';
 import { logger } from '../lib/logger.js';
 
+/** Returns true when an embedding API key is actually present. */
+function hasEmbeddingKey(overrides: EmbeddingKeyOverrides): boolean {
+  const provider = overrides.embeddingProvider ?? process.env['EMBEDDING_PROVIDER'] ?? 'voyage';
+  if (provider === 'openai') return !!(overrides.openAiApiKey ?? process.env['OPENAI_API_KEY']);
+  return !!(overrides.voyageApiKey   ?? process.env['VOYAGE_API_KEY']);
+}
+
 interface KbSyncJobData {
   sourceId: string;
 }
@@ -66,6 +73,11 @@ export async function handleKbSyncJob(job: Job<KbSyncJobData>): Promise<void> {
     // Replace all existing chunks for this source
     await db.delete(knowledgeChunks).where(eq(knowledgeChunks.sourceId, sourceId));
 
+    const useEmbeddings = hasEmbeddingKey(embeddingOverrides);
+    if (!useEmbeddings) {
+      logger.info('KB sync: no embedding key configured — using full-text search only', { sourceId });
+    }
+
     let totalChunks = 0;
     for (const doc of documents) {
       const chunks = chunkText(doc.body, source.chunkSize, source.chunkOverlap, source.minChunkSize);
@@ -73,20 +85,21 @@ export async function handleKbSyncJob(job: Job<KbSyncJobData>): Promise<void> {
 
       for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
         const batch = chunks.slice(i, i + EMBED_BATCH);
-        const embeddings = await embedTexts(batch, embeddingOverrides);
 
-        const rows = batch.map((body, j) => {
-          const embedding = embeddings[j];
-          if (!embedding) throw new Error(`Missing embedding at index ${j}`);
-          return {
-            sourceId,
-            title: doc.title,
-            body,
-            embedding,
-            sourceUrl: doc.sourceUrl ?? null,
-            metadata: { ...doc.metadata, chunkIndex: i + j } as Record<string, unknown>,
-          };
-        });
+        // Fetch embeddings only when a provider key is available.
+        // search_vector (full-text) is always populated automatically by the DB.
+        const embeddings = useEmbeddings
+          ? await embedTexts(batch, embeddingOverrides)
+          : null;
+
+        const rows = batch.map((body, j) => ({
+          sourceId,
+          title: doc.title,
+          body,
+          embedding: embeddings?.[j] ?? null,
+          sourceUrl: doc.sourceUrl ?? null,
+          metadata: { ...doc.metadata, chunkIndex: i + j } as Record<string, unknown>,
+        }));
 
         await db.insert(knowledgeChunks).values(rows);
         totalChunks += batch.length;

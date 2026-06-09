@@ -14,6 +14,13 @@ import {
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { RequestPriority, RequestStatus, OrganizationSettings } from '@enlight/shared';
 import { embedText, type EmbeddingKeyOverrides } from '../lib/embeddings.js';
+
+/** Returns true when an embedding API key is actually configured. */
+function hasEmbeddingKey(overrides: EmbeddingKeyOverrides): boolean {
+  const provider = overrides.embeddingProvider ?? process.env['EMBEDDING_PROVIDER'] ?? 'voyage';
+  if (provider === 'openai') return !!(overrides.openAiApiKey ?? process.env['OPENAI_API_KEY']);
+  return !!(overrides.voyageApiKey ?? process.env['VOYAGE_API_KEY']);
+}
 import { logger } from '../lib/logger.js';
 import { makeSlackClient } from '../slack/client.js';
 import { createOffboardingEvent, validateOffboardingInput } from '../lib/offboarding.js';
@@ -358,32 +365,56 @@ export async function executeTool(
     }
 
     case 'search_knowledge_base': {
+      const topK = input.topK ?? 5;
+      const cols = {
+        id: knowledgeChunks.id,
+        title: knowledgeChunks.title,
+        body: knowledgeChunks.body,
+        sourceUrl: knowledgeChunks.sourceUrl,
+        metadata: knowledgeChunks.metadata,
+      };
+
+      if (hasEmbeddingKey(embeddingOverrides)) {
+        // ── Vector search (semantic) ──────────────────────────────────────────
+        try {
+          const queryEmbedding = await embedText(input.query!, embeddingOverrides);
+          const vecLiteral = `[${queryEmbedding.join(',')}]`;
+          return await db
+            .select(cols)
+            .from(knowledgeChunks)
+            .innerJoin(knowledgeSources, eq(knowledgeSources.id, knowledgeChunks.sourceId))
+            .where(
+              and(
+                eq(knowledgeSources.projectId, input.projectId!),
+                sql`${knowledgeChunks.embedding} IS NOT NULL`,
+              ),
+            )
+            .orderBy(sql`${knowledgeChunks.embedding} <=> ${vecLiteral}::vector`)
+            .limit(topK);
+        } catch (err) {
+          logger.warn('Vector KB search failed, falling back to full-text search', { err });
+          // fall through to FTS below
+        }
+      }
+
+      // ── Full-text search fallback (no embedding key, or vector search failed) ─
       try {
-        const queryEmbedding = await embedText(input.query!, embeddingOverrides);
-        const vecLiteral = `[${queryEmbedding.join(',')}]`;
-        const chunks = await db
-          .select({
-            id: knowledgeChunks.id,
-            title: knowledgeChunks.title,
-            body: knowledgeChunks.body,
-            sourceUrl: knowledgeChunks.sourceUrl,
-            metadata: knowledgeChunks.metadata,
-          })
+        const query = input.query!;
+        return await db
+          .select(cols)
           .from(knowledgeChunks)
           .innerJoin(knowledgeSources, eq(knowledgeSources.id, knowledgeChunks.sourceId))
           .where(
             and(
               eq(knowledgeSources.projectId, input.projectId!),
-              sql`${knowledgeChunks.embedding} IS NOT NULL`,
+              sql`${knowledgeChunks.searchVector} @@ websearch_to_tsquery('english', ${query})`,
             ),
           )
-          .orderBy(sql`${knowledgeChunks.embedding} <=> ${vecLiteral}::vector`)
-          .limit(input.topK ?? 5);
-        return chunks;
+          .orderBy(sql`ts_rank(${knowledgeChunks.searchVector}, websearch_to_tsquery('english', ${query})) DESC`)
+          .limit(topK);
       } catch (err) {
-        // KB search is non-fatal — let the agent continue without it
-        logger.warn('KB search unavailable, continuing without it', { err });
-        return { results: [], note: 'Knowledge base search is not available (embedding key not configured). Proceeding without KB context.' };
+        logger.warn('KB search unavailable', { err });
+        return { results: [], note: 'Knowledge base search is unavailable. Proceeding without KB context.' };
       }
     }
 

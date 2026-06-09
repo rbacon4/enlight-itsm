@@ -12,9 +12,15 @@ import {
   index,
   uniqueIndex,
   vector,
+  customType,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
+
+// PostgreSQL tsvector type for full-text search
+const tsvector = customType<{ data: string }>({
+  dataType() { return 'tsvector'; },
+});
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -417,14 +423,22 @@ export const knowledgeChunks = pgTable(
       .references(() => knowledgeSources.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     body: text('body').notNull(),
-    // 1536-dimensional vectors from Anthropic Embeddings API
+    // Vector embedding (1536-dim) — populated when an embedding provider is configured.
+    // When null, the agent falls back to full-text search via search_vector.
     embedding: vector('embedding', { dimensions: 1536 }),
+    // Full-text search vector — GENERATED ALWAYS (stored) from title + body.
+    // Always populated; zero external dependencies.
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, ''))`,
+    ),
     sourceUrl: text('source_url'),
     metadata: jsonb('metadata').notNull().default('{}'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [
     index('knowledge_chunks_source_idx').on(t.sourceId),
+    // GIN index for fast full-text search
+    index('knowledge_chunks_fts_idx').using('gin', t.searchVector),
   ],
 );
 

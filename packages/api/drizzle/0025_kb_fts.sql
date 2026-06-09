@@ -1,0 +1,2 @@
+ALTER TABLE "knowledge_chunks" ADD COLUMN "search_vector" "tsvector" GENERATED ALWAYS AS (to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, ''))) STORED;--> statement-breakpoint
+CREATE INDEX "knowledge_chunks_fts_idx" ON "knowledge_chunks" USING gin ("search_vector");
