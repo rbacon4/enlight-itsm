@@ -401,9 +401,34 @@ function AIKeysTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
       </Section>
 
       <Section title="Embeddings">
+        {/* How KB search works */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20,
+          padding: '14px 16px', borderRadius: 8,
+          background: 'var(--color-surface-2)', border: '1px solid var(--color-border)',
+          fontSize: 13,
+        }}>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>Without an embedding key</div>
+            <div style={{ color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+              Knowledge base search uses PostgreSQL full-text search — keyword matching with stemming.
+              Works out of the box, no API key required. Best for concise, term-specific articles
+              (e.g. "VPN setup", "password reset").
+            </div>
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>With an embedding key</div>
+            <div style={{ color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+              Upgrades to semantic vector search — finds relevant articles even when phrasing
+              differs (e.g. "can't log in" matches a "password reset" article). Requires a
+              Voyage AI or OpenAI key. Automatically used when a key is present.
+            </div>
+          </div>
+        </div>
+
         <Field
           label="Embedding Provider"
-          hint="Voyage is the recommended default and powers knowledge base search. OpenAI is also supported. Embeddings are independent of the AI platform above."
+          hint="Optional. When a key is set, knowledge base search upgrades from full-text to semantic vector search. Independent of the AI platform selected above."
         >
           <select
             value={form.embeddingProvider}
@@ -424,12 +449,12 @@ function AIKeysTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
                 <a href="https://www.voyageai.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>
                   voyageai.com
                 </a>
-                . Free tier available.
+                . Free tier available. Leave blank to use full-text search instead.
               </>
             }
             value={form.voyageApiKey}
             onChange={v => setForm(f => ({ ...f, voyageApiKey: v }))}
-            placeholder="pa-…"
+            placeholder="pa-… (optional)"
           />
         )}
 
@@ -441,12 +466,12 @@ function AIKeysTab({ org, onSaved }: { org: OrgDetails; onSaved: () => void }) {
                 Get one at{' '}
                 <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)' }}>
                   platform.openai.com
-                </a>.
+                </a>. Leave blank to use full-text search instead.
               </>
             }
             value={form.openAiApiKey}
             onChange={v => setForm(f => ({ ...f, openAiApiKey: v }))}
-            placeholder="sk-…"
+            placeholder="sk-… (optional)"
           />
         )}
       </Section>
